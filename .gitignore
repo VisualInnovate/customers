@@ -1,0 +1,61 @@
+# Build artifacts
+public/build/
+public/mix-manifest.json
+public/hot
+
+# Laravel caches
+bootstrap/cache/*.php
+!bootstrap/cache/.gitkeep
+storage/*.key
+storage/app/*
+!storage/app/.gitkeep
+!storage/app/public
+storage/framework/cache/*
+!storage/framework/cache/.gitkeep
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+storage/framework/testing/*
+!storage/framework/testing/.gitkeep
+storage/framework/views/*
+!storage/framework/views/.gitkeep
+storage/logs/*
+!storage/logs/.gitkeep
+
+# IDE files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+
+# Deployment
+.deployment
+deploy.php
+
+# Node
+npm-debug.log
+yarn-error.log
+.npm
+node_modules
+
+
+# Composer
+composer.phar
+vendor
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Vite timestamp files
+vite.config.js.timestamp-*
+
