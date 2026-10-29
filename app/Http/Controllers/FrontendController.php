@@ -21,6 +21,7 @@ class FrontendController extends BaseController
 {
     private $campaignService;
 
+    
     public function __construct(CampaignService $campaignService)
     {
         $this->campaignService = $campaignService;
