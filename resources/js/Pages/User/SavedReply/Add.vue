@@ -11,6 +11,7 @@
                         </svg>
                         <span class="ml-1 mt-1">{{ $t('Create Saved Reply for review') }}</span>
                     </p>
+                    
                 </div>
                 <div class="space-x-2 flex items-center">
                     <Link href="/saved-replies"
