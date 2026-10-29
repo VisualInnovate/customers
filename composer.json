@@ -54,6 +54,11 @@
         "files": [
             "app/Helpers/DateTimeHelper.php",
             "app/Helpers/CustomHelper.php"
+        ],
+        "exclude-from-classmap": [
+            "app/Hesabe/Controllers/PaymentController.php",
+            "app/Hesabe/Models/HesabeCheckoutRequestModel.php",
+            "app/Hesabe/Models/HesabePaymentResponseModel.php"
         ]
     },
     "autoload-dev": {

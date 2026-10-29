@@ -49,6 +49,7 @@ class LoginRequest extends FormRequest
             ],
         ];
 
+        
         // Check if recaptcha_active is 1, then add recaptcha_response rule
         if (Setting::getValueByKey('recaptcha_active') === '1') {
             $rules['recaptcha_response'] = ['required', new Recaptcha];
