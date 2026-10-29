@@ -75,7 +75,8 @@
     };
 
     const getSocialSettings = (key, value) => {
-        const config = JSON.parse(getValueByKey(key));
+        const rawConfig = getValueByKey(key);
+        const config = rawConfig ? JSON.parse(rawConfig) : null;
         
         if (config !== null && typeof config === 'object' && !Array.isArray(config)) {
             return config[value] ?? null;

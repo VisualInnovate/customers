@@ -12,10 +12,10 @@ class SocialLoginService
 {
     public static function makeGoogleDriver()
     {
-        $metadata = Setting::where('key', 'google_login')->first()->value;
+        $metadata = Setting::getValueByKey('google_login');
         $metadata = json_decode($metadata);
-        $app_id = $metadata !== false ? isset($metadata->client_id) ?  $metadata->client_id : '' : '';
-        $app_secret = $metadata !== false ? isset($metadata->client_secret) ? $metadata->client_secret : '' : '';
+        $app_id = $metadata->client_id ?? '';
+        $app_secret = $metadata->client_secret ?? '';
 
         $config = [
             'client_id' => $app_id,
@@ -28,10 +28,10 @@ class SocialLoginService
 
     public static function makeFacebookDriver()
     {
-        $metadata = Setting::where('key', 'facebook_login')->first()->value;
+        $metadata = Setting::getValueByKey('facebook_login');
         $metadata = json_decode($metadata);
-        $app_id = $metadata !== false ? isset($metadata->client_id) ?  $metadata->client_id : '' : '';
-        $app_secret = $metadata !== false ? isset($metadata->client_secret) ? $metadata->client_secret : '' : '';
+        $app_id = $metadata->client_id ?? '';
+        $app_secret = $metadata->client_secret ?? '';
 
         $config = [
             'client_id' => $app_id,

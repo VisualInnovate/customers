@@ -78,9 +78,15 @@ class AuthController extends BaseController
 
         //Check number of organizations
         if ($guard === 'user') {
-            $teams = Team::where('user_id', $authenticatedUser->id);
-            if($teams->count() == 1){
-                session()->put('current_organization', $teams->first()->organization_id);
+            $team = Team::where('user_id', $authenticatedUser->id)
+                ->orderBy('id')
+                ->first();
+
+            if ($team) {
+                session()->put('current_organization', $team->organization_id);
+            } else {
+                $organization = $this->createOrganization($authenticatedUser);
+                session()->put('current_organization', $organization->id);
             }
         }
 
