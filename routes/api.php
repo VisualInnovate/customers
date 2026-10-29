@@ -35,7 +35,6 @@ Route::get('/translations/{locale}', function ($locale) {
     return response()->json(json_decode(File::get($path), true));
 });
 
-
 Route::post('shopfiy',[shopfiyController::class,'index']);
 Route::get('go',function(){
     return 555;
