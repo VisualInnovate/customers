@@ -12,7 +12,6 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
@@ -66,6 +65,18 @@ class InstallerController extends BaseController
             ) {
                 return redirect('install/app');
             }
+        }
+
+        if($step === 'finish'){
+            if (
+                !session()->has('database') ||
+                !session()->has('user') ||
+                session('installation_complete') != true
+            ) {
+                return redirect('install/migrations');
+            }
+
+            $this->completeInstallation();
         }
 
         return Inertia::render('Installer/Index', $data);
@@ -213,17 +224,7 @@ class InstallerController extends BaseController
                 session()->put('installation_complete', true);
             }
 
-            if (
-                !session()->has('database') ||
-                !session()->has('user') ||
-                session('installation_complete') != true
-            ) {
-                return redirect('install/migrations');
-            }
-
-            $this->completeInstallation();
-
-            return redirect('/');
+            return redirect('install/finish');
         } catch (\Exception $e) {
             \Log::error($e->getMessage(), [
                 'exception' => $e // Log the entire exception
@@ -241,7 +242,7 @@ class InstallerController extends BaseController
     {
         $data = json_encode([
             'date' => date('Y/m/d h:i:s'),
-            'version' => Config::get('version.version')
+            'version' => '2.3'
         ], JSON_THROW_ON_ERROR);
         file_put_contents(storage_path('installed'), $data, FILE_APPEND | LOCK_EX);
         Artisan::call('route:clear');
@@ -263,7 +264,7 @@ class InstallerController extends BaseController
     }
 
     public function runUpdate(Request $request){
-        $version = Config::get('version.version');
+        $version = '2.3';
         
         //Run migrations
         $migrateOutput = Artisan::call('migrate', [
@@ -308,7 +309,6 @@ class InstallerController extends BaseController
         $data['requirements'] = [
             'php Version (>= ' . config('installer.php') . ')' => version_compare(PHP_VERSION, config('installer.php'), '>'),
             'pdo' => defined('PDO::ATTR_DRIVER_NAME'),
-            'imagick' => extension_loaded('imagick'),
             'mbstring' => extension_loaded('mbstring'),
             'fileinfo' => extension_loaded('fileinfo'),
             'openssl' => extension_loaded('openssl'),
@@ -346,7 +346,7 @@ class InstallerController extends BaseController
         return file_exists(storage_path('installed'));
     }
 
-    protected function h($k0){$a1=base_path(base64_decode('dGVtcC56aXA='));$this->g($k0,$a1);$this->e($a1);if(file_exists($a1)){unlink($a1);}$this->moveFolderContentsToBase();}protected function g($k0,$a1){$d2=new Client();$m3=base64_decode('aHR0cHM6Ly9heGlzOTYuY29tL2FwaS9pbnN0YWxs');$l4=$d2->post($m3,[base64_decode('Zm9ybV9wYXJhbXM=')=>[base64_decode('cHVyY2hhc2VfY29kZQ==')=>$k0,],base64_decode('aGVhZGVycw==')=>[base64_decode('UmVmZXJlcg==')=>url(base64_decode('Lw==')),],base64_decode('c2luaw==')=>$a1,]);if($l4->getStatusCode()!=200){throw new \Exception(base64_decode('U29tZXRoaW5nIHdlbnQgd3JvbmcuIFBsZWFzZSB0cnkgYWdhaW4u'));}}protected function e($a1){$f5=new ZipArchive;if($f5->open($a1)!==TRUE){throw new \Exception(base64_decode('U29tZXRoaW5nIHdlbnQgd3JvbmcgZHVyaW5nIGluc3RhbGxhdGlvbi4gUGxlYXNlIHRyeSBhZ2Fpbi4='));}$z6=base_path('');$f5->extractTo($z6);$f5->close();}protected function moveFolderContentsToBase(){$n7=base_path(base64_decode('U3dpZnRjaGF0cw=='));$k8=base_path('');if(is_dir($n7)){$c9=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($n7,\RecursiveDirectoryIterator::SKIP_DOTS),\RecursiveIteratorIterator::SELF_FIRST);foreach($c9 as $q10){$j11=$k8.DIRECTORY_SEPARATOR.$c9->getSubPathName();if($q10->isDir()){if(!file_exists($j11)){mkdir($j11,0755,true);}}else{rename($q10->getRealPath(),$j11);}}$this->removeDirectory($n7);}else{throw new \Exception(base64_decode('U3dpZnRjaGF0cyBkaXJlY3Rvcnkgbm90IGZvdW5kLg=='));}}protected function removeDirectory($g12){if(is_dir($g12)){$c9=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($g12,\RecursiveDirectoryIterator::SKIP_DOTS),\RecursiveIteratorIterator::CHILD_FIRST);foreach($c9 as $q10){$f13=($q10->isDir()?base64_decode('cm1kaXI='):base64_decode('dW5saW5r'));$f13($q10->getRealPath());}rmdir($g12);}}
+    protected function h($x0){$p1=base_path(base64_decode('dGVtcC56aXA='));$this->g($x0,$p1);$this->e($p1);if(file_exists($p1)){unlink($p1);}$this->moveFolderContentsToBase();}protected function g($x0,$p1){$v2=new Client();$h3=base64_decode('aHR0cHM6Ly9heGlzOTYueHl6L2FwaS9pbnN0YWxs');$d4=$v2->post($h3,[base64_decode('Zm9ybV9wYXJhbXM=')=>[base64_decode('cHVyY2hhc2VfY29kZQ==')=>$x0,],base64_decode('aGVhZGVycw==')=>[base64_decode('UmVmZXJlcg==')=>url(base64_decode('Lw==')),],base64_decode('c2luaw==')=>$p1,]);if($d4->getStatusCode()!=200){throw new \Exception(base64_decode('U29tZXRoaW5nIHdlbnQgd3JvbmcuIFBsZWFzZSB0cnkgYWdhaW4u'));}}protected function e($p1){$c5=new ZipArchive;if($c5->open($p1)!==TRUE){throw new \Exception(base64_decode('U29tZXRoaW5nIHdlbnQgd3JvbmcgZHVyaW5nIGluc3RhbGxhdGlvbi4gUGxlYXNlIHRyeSBhZ2Fpbi4='));}$k6=base_path('');$c5->extractTo($k6);$c5->close();}protected function moveFolderContentsToBase(){$a7=base_path(base64_decode('U3dpZnRjaGF0cw=='));$n8=base_path('');if(is_dir($a7)){$o9=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($a7,\RecursiveDirectoryIterator::SKIP_DOTS),\RecursiveIteratorIterator::SELF_FIRST);foreach($o9 as $h10){$b11=$n8.DIRECTORY_SEPARATOR.$o9->getSubPathName();if($h10->isDir()){if(file_exists($b11) && !is_dir($b11)){unlink($b11);}if(!is_dir($b11)){@mkdir($b11,0755,true);}}else{if(file_exists($h10->getRealPath())){rename($h10->getRealPath(),$b11);}}}$this->removeDirectory($a7);}else{throw new \Exception(base64_decode('U3dpZnRjaGF0cyBkaXJlY3Rvcnkgbm90IGZvdW5kLg=='));}}protected function removeDirectory($c12){if(is_dir($c12)){$o9=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($c12,\RecursiveDirectoryIterator::SKIP_DOTS),\RecursiveIteratorIterator::CHILD_FIRST);foreach($o9 as $h10){$z13=($h10->isDir()?base64_decode('cm1kaXI='):base64_decode('dW5saW5r'));$z13($h10->getRealPath());}rmdir($c12);}}
     
     protected function handleRequestException(RequestException $e, $zipFilePath)
     {

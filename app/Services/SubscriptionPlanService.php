@@ -54,23 +54,15 @@ class SubscriptionPlanService
                 'contacts_limit' => $request->input('contacts_limit'),
                 'canned_replies_limit' => $request->input('canned_replies_limit'),
                 'team_limit' => $request->input('team_limit'),
-                'receive_messages_after_expiration' => $request->input('receive_messages_after_expiration') == true ? 1 : 0,
-                'ai_text_response_limit' => $request->input('ai_text_response_limit'),
-                'ai_audio_response_limit' => $request->input('ai_audio_response_limit'),
-                'addons' => $request->input('addons', [])
+                'receive_messages_after_expiration' => $request->input('receive_messages_after_expiration') == true ? 1 : 0
             ]),
         ]);
 
         $stripe = PaymentGateway::where('name', 'Stripe')->first();
 
-        if($stripe->is_active == '1'){
+        if ($stripe && $stripe->is_active == '1') {
             //Create product in Stripe
             (new StripeService)->createProduct($newSubscriptionPlan);
-        }
-
-        if (file_exists(base_path('modules/Pabbly/Services/PabblyService.php'))) {
-            $pabblyService = new \Modules\Pabbly\Services\PabblyService();
-            $response = $pabblyService->createPlan($newSubscriptionPlan);
         }
     
         return $newSubscriptionPlan;
@@ -91,9 +83,6 @@ class SubscriptionPlanService
         $metadata['canned_replies_limit'] = $request->input('canned_replies_limit');
         $metadata['team_limit'] = $request->input('team_limit');
         $metadata['receive_messages_after_expiration'] = $request->input('receive_messages_after_expiration') == true ? 1 : 0;
-        $metadata['ai_text_response_limit'] = $request->input('ai_text_response_limit');
-        $metadata['ai_audio_response_limit'] = $request->input('ai_audio_response_limit');
-        $metadata['addons'] = $request->input('addons', []);
 
         $plan->name = $request->input('name');
         $plan->price = $request->input('price');
@@ -105,14 +94,9 @@ class SubscriptionPlanService
 
         $stripe = PaymentGateway::where('name', 'Stripe')->first();
 
-        if($stripe->is_active == '1'){
+        if ($stripe && $stripe->is_active == '1') {
             //Update product in Stripe
             (new StripeService)->updateProduct($plan);
-        }
-
-        if (file_exists(base_path('modules/Pabbly/Services/PabblyService.php'))) {
-            $pabblyService = new \Modules\Pabbly\Services\PabblyService();
-            $response = $pabblyService->updatePlan($plan);
         }
 
         return $plan;
@@ -130,7 +114,7 @@ class SubscriptionPlanService
 
         $stripe = PaymentGateway::where('name', 'Stripe')->first();
 
-        if($stripe->is_active == '1'){
+        if ($stripe && $stripe->is_active == '1') {
             //Update product in Stripe
             (new StripeService)->deleteProduct($subscriptionPlan);
         }

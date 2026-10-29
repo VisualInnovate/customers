@@ -25,11 +25,7 @@ class AddonsTableSeeder3 extends Seeder
         ];
 
         foreach ($rows as $row) {
-            // Check if a record with the same name exists
-            Addon::firstOrCreate(
-                ['name' => $row['name']],
-                $row 
-            );
+            Addon::create($row);
         }
     }
 }

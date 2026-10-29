@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Setting;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,20 +18,15 @@ class RedirectIfAuthenticated
      */
     public function handle(Request $request, Closure $next, ...$guards)
     {
-        $frontend = Setting::where('key', 'display_frontend')->first();
-        $frontend_active = $frontend ? $frontend->value : 1;
+        $guards = empty($guards) ? ['user', 'admin'] : $guards;
 
-        if (!$frontend_active) {
-            $guards = empty($guards) ? ['user', 'admin'] : $guards;
-
-            foreach ($guards as $guard) {
-                if (Auth::guard($guard)->check()) {
-                    $user = Auth::guard($guard)->user();
-                    if ($user->role == 'admin') {
-                        return redirect('/admin/dashboard');
-                    } else {
-                        return redirect('/dashboard');
-                    }
+        foreach ($guards as $guard) {
+            if (Auth::guard($guard)->check()) {
+                $user = Auth::guard($guard)->user();
+                if ($user->role == 'admin') {
+                    return redirect('/admin/dashboard');
+                } else {
+                    return redirect('/dashboard');
                 }
             }
         }

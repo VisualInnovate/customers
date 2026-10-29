@@ -8,7 +8,7 @@ class PaymentPlatformResolver
 {
     public function resolveService($paymentPlatform)
     {
-        $name = str_replace('-', ' ', strtolower($paymentPlatform));
+        $name = strtolower($paymentPlatform);
         $service = config("services.{$name}.class");
         
         if ($service) {

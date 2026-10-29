@@ -27,24 +27,23 @@ class TeamController extends BaseController
                 ->latest()->paginate(10)
         );
 
-//        if($request->expectsJson()){
-//            $rows = DB::table('users')
-//                ->join('teams', 'users.id', '=', 'teams.user_id')
-//                ->where('teams.organization_id', '=', session()->get('current_organization'))
-//                ->whereNull('teams.deleted_at')
-//                ->select('users.*')
-//                ->get();
-//
-//            return response()->json([
-//                'rows' => $rows
-//            ]);
-//        } else {
+        if($request->expectsJson()){
+            $rows = DB::table('users')
+                ->join('teams', 'users.id', '=', 'teams.user_id')
+                ->where('teams.organization_id', '=', session()->get('current_organization'))
+                ->select('users.*')
+                ->get();
+
+            return response()->json([
+                'rows' => $rows
+            ]);
+        } else {
             return Inertia::render('User/Team/Index', [
                 'title' => __('Team'),
                 'filters' => $request->all(),
                 'rows' => $rows,
             ]);
-//        }
+        }
     }
 
     public function invite(StoreTeam $request){

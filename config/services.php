@@ -60,13 +60,9 @@ return [
         'class' => Modules\Razorpay\Controllers\ProcessPayment::class,
     ],
 
-    'pabbly subscriptions' => [
-        'class' => Modules\Pabbly\Controllers\ProcessPayment::class,
+    'tap' => [
+        'class' => App\Services\TapService::class,
     ],
-
-    'shopify' => [
-        'class' => Modules\Shopify\Controllers\WebhookController::class
-    ]
 ];
 
 

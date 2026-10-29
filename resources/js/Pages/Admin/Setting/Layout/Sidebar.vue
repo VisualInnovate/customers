@@ -91,17 +91,14 @@
                 </ul>
             </div>
         </div>
-        <div class="flex items-center justify-between mx-2 my-2 pl-4 px-2 py-1 border rounded-md">
-            <span class="text-sm font-light text-gray-500">Version: v{{ version }}</span>
-            <Link href="/admin/updates" class="border text-sm px-4 py-1 rounded-md">{{ $t('Updates') }}</Link>
+        <div class="mx-4 my-2 px-4 py-2 border rounded-md">
+            <span class="text-sm font-light text-gray-500">v2.1 • Released Sept 11, 2024</span>
         </div>
     </aside>
 </template>
 <script setup>
-    import { Link, usePage } from "@inertiajs/vue3";
-    import { computed, ref } from "vue";
-
-    const { props } = usePage();
+    import { Link } from "@inertiajs/vue3";
+    import { ref } from "vue";
 
     const showDropdown1 = ref(false);
     const toggleDropdown = (type) => {
@@ -109,7 +106,4 @@
             showDropdown1.value = !showDropdown1.value;
         }
     }
-    
-    const version = computed(() => usePage().props.applicationVersion);
-    const releaseDate = computed(() => usePage().props.applicationReleaseDate);
 </script>

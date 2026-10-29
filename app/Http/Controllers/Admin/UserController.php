@@ -32,21 +32,21 @@ class UserController extends BaseController
      */
     public function index(Request $request)
     {
-//        if ($request->wantsJson()) {
-//            return response()->json([
-//                'title' => __('Users'),
-//                'allowCreate' => true,
-//                'rows' => $this->userService->get($request),
-//                'filters' => $request->all()
-//            ]);
-//        } else {
-        return Inertia::render('Admin/Customer/Index', [
-            'title' => __('Users'),
-            'allowCreate' => true,
-            'rows' => $this->userService->get($request),
-            'filters' => $request->all()
-        ]);
-//        }
+        if ($request->wantsJson()) {
+            return response()->json([
+                'title' => __('Users'),
+                'allowCreate' => true,
+                'rows' => $this->userService->get($request), 
+                'filters' => $request->all()
+            ]);
+        } else {
+            return Inertia::render('Admin/Customer/Index', [
+                'title' => __('Users'),
+                'allowCreate' => true,
+                'rows' => $this->userService->get($request), 
+                'filters' => $request->all()
+            ]);
+        }
     }
 
     /**

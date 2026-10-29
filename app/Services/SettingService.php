@@ -2,9 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\PaymentGateway;
 use App\Models\Setting;
-use App\Services\StripeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -138,28 +136,9 @@ class SettingService
                             Cache::flush();
 
                             EnvSet::setKey('MAIL_MAILER', $value['driver']);
-                            EnvSet::setKey('MAIL_HOST', null);
-                            EnvSet::setKey('MAIL_PORT', null);
-                            EnvSet::setKey('MAIL_USERNAME', null);
-                            EnvSet::setKey('MAIL_PASSWORD', null);
                             EnvSet::setKey('SES_KEY', $value['ses_key']);
                             EnvSet::setKey('SES_KEY_SECRET', $value['ses_secret']);
                             EnvSet::setKey('SES_REGION', $value['ses_region']);
-                            EnvSet::setKey('MAIL_FROM_ADDRESS', $value['from_address']);
-                            EnvSet::setKey('MAIL_FROM_NAME', $value['from_name']);
-                            EnvSet::save();
-                        } else if($value['driver'] == 'mailgun'){
-                            Artisan::call('config:clear');
-                            Artisan::call('cache:clear');
-                            Cache::flush();
-
-                            EnvSet::setKey('MAIL_MAILER', $value['driver']);
-                            EnvSet::setKey('MAIL_HOST', null);
-                            EnvSet::setKey('MAIL_PORT', null);
-                            EnvSet::setKey('MAIL_USERNAME', null);
-                            EnvSet::setKey('MAIL_PASSWORD', null);
-                            EnvSet::setKey('MAILGUN_DOMAIN', $value['mg_domain']);
-                            EnvSet::setKey('MAILGUN_SECRET', $value['mg_secret']);
                             EnvSet::setKey('MAIL_FROM_ADDRESS', $value['from_address']);
                             EnvSet::setKey('MAIL_FROM_NAME', $value['from_name']);
                             EnvSet::save();
@@ -173,18 +152,6 @@ class SettingService
                             ],[
                                 'value' => $value,
                             ]);
-                    } else if($key == 'is_tax_inclusive'){
-                        try {
-                            DB::table('settings')->updateOrInsert(['key' => $key],['value' => $value,]);
-                        } catch (\Exception $e) {
-                            Log::error($e->getMessage());
-                        }
-
-                        $stripe = PaymentGateway::where('name', 'Stripe')->first();
-
-                        if($stripe->is_active == '1'){
-                            (new StripeService)->updateProductPrices();
-                        }
                     } else {
                         if($key != 'logo' && $key != 'favicon'){
                             try {

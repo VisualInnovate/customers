@@ -27,9 +27,7 @@ class Email
 
     public static function sendInvite($template, $recipientEmail, $inviter, $link)
     {
-        $smtpQuery = Setting::where('key', 'smtp_email_active')->first();
-
-        if($smtpQuery->value == 1){
+        if (Setting::where('key', 'smtp_email_active')->value('value') == 1) {
             $emailTemplate = EmailTemplate::where('name', $template)->first();
             $subject = self::replacePlaceholders($emailTemplate->subject, $inviter, $link);
             $body = self::replacePlaceholders($emailTemplate->body, $inviter, $link);
@@ -44,9 +42,7 @@ class Email
 
     public static function sendPasswordReset($template, $recipient, $link)
     {
-        $smtpQuery = Setting::where('key', 'smtp_email_active')->first();
-
-        if($smtpQuery->value == 1){
+        if (Setting::where('key', 'smtp_email_active')->value('value') == 1) {
             $emailTemplate = EmailTemplate::where('name', $template)->first();
             $subject = self::replacePlaceholders($emailTemplate->subject, $recipient, $link);
             $body = self::replacePlaceholders($emailTemplate->body, $recipient, $link);
@@ -61,9 +57,7 @@ class Email
 
     public static function sendSubscriptionEmail($template, $recipient, $plan)
     {
-        $smtpQuery = Setting::where('key', 'smtp_email_active')->first();
-
-        if($smtpQuery->value == 1){
+        if (Setting::where('key', 'smtp_email_active')->value('value') == 1) {
             $emailTemplate = EmailTemplate::where('name', $template)->first();
             $subject = self::replacePlaceholders($emailTemplate->subject, $recipient, NULL, $plan);
             $body = self::replacePlaceholders($emailTemplate->body, $recipient, NULL, $plan);
@@ -78,9 +72,7 @@ class Email
 
     public static function send($template, $recipient)
     {
-        $smtpQuery = Setting::where('key', 'smtp_email_active')->first();
-
-        if($smtpQuery->value == 1){
+        if (Setting::where('key', 'smtp_email_active')->value('value') == 1) {
             $emailTemplate = EmailTemplate::where('name', $template)->first();
             $subject = self::replacePlaceholders($emailTemplate->subject, $recipient);
             $body = self::replacePlaceholders($emailTemplate->body, $recipient);
@@ -112,4 +104,3 @@ class Email
         return $replacedContent;
     }
 }
-

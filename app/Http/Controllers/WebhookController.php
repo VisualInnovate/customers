@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\DTO\MessageRequest;
 use App\Events\NewChatEvent;
+use App\Events\NewStatusEvent;
 use App\Helpers\WebhookHelper;
 use App\Http\Controllers\Controller as BaseController;
-use App\Jobs\ProcessWebhookedMessages;
-use App\Jobs\SmbSyncContacts;
 use App\Models\AutoReply;
-use App\Models\Call;
+use App\Models\AutoResponse;
 use App\Models\Contact;
 use App\Models\Chat;
 use App\Models\ChatLog;
@@ -22,19 +22,16 @@ use App\Services\AutoReplyService;
 use App\Services\ChatService;
 use App\Services\StripeService;
 use App\Services\SubscriptionService;
-use Carbon\Carbon;
-use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Propaganistas\LaravelPhone\PhoneNumber;
+use Str;
 
 class WebhookController extends BaseController
 {
@@ -56,30 +53,29 @@ class WebhookController extends BaseController
     }
 
     public function whatsappWebhook(Request $request){
-        $verifyToken = Setting::where('key', 'whatsapp_callback_token')->first()->value;
+        //Log::info($request);
+        $verifyToken = Setting::where('key', 'whatsapp_callback_token')->value('value');
 
         $mode = $request->input('hub_mode');
         $token = $request->input('hub_verify_token');
         $challenge = $request->input('hub_challenge');
 
-        if ($mode === 'subscribe' && $token === $verifyToken) {
+        if ($mode === 'subscribe' && is_string($verifyToken) && $verifyToken !== '' && is_string($token) && hash_equals($verifyToken, $token)) {
             return Response::make($challenge, 200);
         } else {
-            return Response::json(['error' => 'Forbidden'], 200);
+            return Response::json(['error' => 'Forbidden'], 403);
         }
     }
 
     public function handle(Request $request, $identifier = null)
     {
+        //Log::info('Webhook Handler: Start processing for identifier ' . $identifier);
         $organization = $this->getOrganizationByIdentifier($identifier);
 
         if (!$organization) {
             return $this->forbiddenResponse();
         }
-        if(!isset($request->entry)) {
-            Log::info('Webhook called without entry data for org: ' . $organization->id);
-            return $this->whatsappWebhook($request);
-        }
+
         return $this->handleMethod($request, $organization);
     }
 
@@ -134,14 +130,21 @@ class WebhookController extends BaseController
         try {
             $verifyToken = $organization->identifier;
 
-            $mode = $request->input('hub_mode');
-            $token = $request->input('hub_verify_token');
-            $challenge = $request->input('hub_challenge');
+            $mode = $request->query('hub.mode', $request->query('hub_mode'));
+            $token = $request->query('hub.verify_token', $request->query('hub_verify_token'));
+            $challenge = $request->query('hub.challenge', $request->query('hub_challenge'));
 
-            if ($mode === 'subscribe' && $token === $verifyToken) {
-                return Response::make($challenge, 200);
+            if (
+                $mode === 'subscribe'
+                && is_string($verifyToken)
+                && $verifyToken !== ''
+                && is_string($token)
+                && hash_equals($verifyToken, $token)
+                && is_string($challenge)
+            ) {
+                return Response::make($challenge, 200, ['Content-Type' => 'text/plain']);
             } else {
-                return Response::json(['error' => 'Forbidden'], 404);
+                return Response::json(['error' => 'Forbidden'], 403);
             }
         } catch (\Exception $e) {
             Log::error("Error processing webhook: " . $e->getMessage());
@@ -152,13 +155,216 @@ class WebhookController extends BaseController
     protected function handlePostRequest(Request $request, Organization $organization)
     {
         $res = $request->entry[0]['changes'][0];
-        if($res['field'] != 'history')
-            $this->forwardToStaging($request->getContent(), $organization->identifier);
 
-        if($res['field'] === 'messages') {
-            // Real-time incoming messages - MESSAGES QUEUE (highest priority)
-            ProcessWebhookedMessages::dispatch($res, $organization)
-                ->onQueue('messages');
+        Log::info($request);
+
+        if($res['field'] === 'messages'){
+            $contacts = $res['value']['contacts'][0] ?? null;
+            $messages = $res['value']['messages'] ?? null;
+            $statuses = $res['value']['statuses'] ?? null;
+
+            if($statuses) {
+                //$response = $res['value']['statuses'][0];
+                foreach($statuses as $response){
+                    $chatWamId = $response['id'];
+                    $status = $response['status'];
+
+                    $chat = Chat::where('wam_id', $chatWamId)->first();
+
+                    if($chat){
+                        $chat->status = $status;
+                        $chat->save();
+                        
+                        $chatStatusLog = new ChatStatusLog;
+                        $chatStatusLog->chat_id = $chat->id;
+                        $chatStatusLog->metadata = json_encode($response);
+                        $chatStatusLog->save();
+
+                        event(new NewStatusEvent($chat, $organization->id));
+                    }
+                    else
+                    {
+                        // Log::info('Chat not found for wam_id', ['wam_id' => $chatWamId]);
+                    }
+                }
+
+
+                // Trigger webhook
+                // WebhookHelper::triggerWebhookEvent('message.status.update', [
+                //     'data' => $res,
+                // ], $organization->id);
+            } else if($messages) {
+                $isLimitReached = SubscriptionService::isSubscriptionLimitReachedForInboundMessages($organization->id);
+                //Log::info($messages);
+
+                if(!$isLimitReached)
+                {
+                    foreach($messages as $response){
+                        $phone = $response['from'];
+
+                        if (substr($phone, 0, 1) !== '+') {
+                            $phone = '+' . $phone;
+                        }
+
+                        $phone = new PhoneNumber($phone);
+                        $phone = $phone->formatE164();
+
+                        //Check if contact exists in organization
+                        $contact = Contact::where('organization_id', $organization->id)->where('phone', $phone)->whereNull('deleted_at')->first();
+                        $isNewContact = false;
+
+                        if(!$contact){
+                            //Create a contact
+                            $contactData = $res['value']['contacts'][0]['profile'] ?? null;
+
+                            $contact = Contact::create([
+                                'first_name' => $contactData['name'] ?? null,
+                                'last_name' => null,
+                                'email' => null,
+                                'phone' => $phone,
+                                'organization_id' => $organization->id,
+                                'created_by' => 0,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                            $isNewContact = true;
+
+                            // gretting new customers
+
+                            $greeting = AutoResponse::where('organization_id', $organization->id)->first();
+
+                            if($greeting && $greeting->active == 1)
+                            {
+                                $chatService = new ChatService($organization->id);
+                                $messageRequest = new MessageRequest(
+                                    message: $greeting->message,
+                                    uuid: $contact->uuid,
+                                    type: 'text',
+                                    reply_to: null,
+                                    channel: 'whatsapp'
+                                );
+                                $chatService->sendMessage($messageRequest);
+                            }
+                        }
+
+                        if($contact){
+                            if($contact->first_name == NULL){
+                                $contactData = $res['value']['contacts'][0]['profile'];
+                                $contact->update([
+                                    'first_name' => $contactData['name'],
+                                ]);
+                            }
+
+                            // Check if contact has a last chat before 14 days
+                            // $lastChatBefore14 = Chat::where('contact_id', $contact->id)->where('created_at', '<', now()->subDays(14))->first();
+
+                            // if($lastChatBefore14){
+                            //     $greeting = AutoResponse::where('organization_id', $organization->id)->first();
+
+                            //     if($greeting && $greeting->active == 1)
+                            //     {
+                            //         $chatService = new ChatService($organization->id);
+                            //         $messageRequest = new MessageRequest(
+                            //             message: $greeting->message,
+                            //             uuid: $contact->uuid,
+                            //             type: 'text',
+                            //             reply_to: null
+                            //         );
+                            //         $chatService->sendMessage($messageRequest);
+                            //     }
+                            // }
+
+                            $chat = Chat::where('wam_id', $response['id'])->where('organization_id', $organization->id)->first();
+
+                            if($chat){
+                                $chat->channel = 'whatsapp';
+                                $chat->save();
+                                Log::info('Chat channel updated to whatsapp');
+                            }
+
+                            if(!$chat){
+                                //First open the chat
+                                (new ChatService($organization->id))->handleTicketAssignment($contact->id);
+                                
+
+                                $chat = new Chat;
+                                $chat->channel = 'whatsapp';
+                                $chat->organization_id = $organization->id;
+                                $chat->wam_id = $response['id'];
+                                $chat->contact_id = $contact->id;
+                                $chat->type = 'inbound';
+                                if (isset($response['context']['id'])) {
+                                    $replyToMessageId = $response['context']['id'];
+                                    $originalMessage = Chat::with('media')->where('wam_id', $replyToMessageId)->first();
+                                    $chat->old_message_id = $originalMessage->id;
+                                } else {
+                                    $chat->old_message_id = null; // Usual message
+                                    $originalMessage = null;
+                                }
+                                $chat->metadata = json_encode($response);
+                                $chat->status = 'delivered';
+                                $chat->save();
+                            
+                                if($chat){
+                                    if($response['type'] === 'image' || $response['type'] === 'video' || $response['type'] === 'audio' || $response['type'] === 'document' || $response['type'] === 'sticker'){
+                                        $type = $response['type'];
+                                        $mediaId = $response[$type]['id'];
+
+                                        //Get & Download media file
+                                        $media = $this->getMedia($mediaId, $organization);
+                                        $downloadedFile = $this->downloadMedia($media, $organization);
+
+                                        //Upload media
+                                        $chatMedia = new ChatMedia;
+                                        $chatMedia->name = $type === 'document' ? $response[$type]['filename'] : 'N/A';
+                                        $chatMedia->path = $downloadedFile['media_url'];
+                                        $chatMedia->type = $media['mime_type'];
+                                        $chatMedia->size = $media['file_size'];
+                                        $chatMedia->location = $downloadedFile['location'];
+                                        $chatMedia->created_at = now();
+                                        $chatMedia->save();
+
+                                        //Update chat
+                                        Chat::where('id', $chat->id)->update([
+                                            'media_id' => $chatMedia->id
+                                        ]);
+                                    }
+                                }
+
+                                $chat = Chat::with('contact','media')->where('id', $chat->id)->first();
+
+                                $chatlogId = ChatLog::insertGetId([
+                                    'contact_id' => $contact->id,
+                                    'entity_type' => 'chat',
+                                    'entity_id' => $chat->id,
+                                    'created_at' => now()
+                                ]);
+                                
+                                $chatLogArray = ChatLog::where('id', $chatlogId)->where('deleted_at', null)->first();
+                                $chatArray = array([
+                                    'type' => 'chat',
+                                    'value' => $chatLogArray->relatedEntities
+                                ]);
+
+                                event(new NewChatEvent($chatArray, $organization->id, $originalMessage));
+
+                                $isMessageLimitReached = SubscriptionService::isSubscriptionFeatureLimitReached($organization->id, 'message_limit');
+
+                                // if(!$isMessageLimitReached){
+                                    if($response['type'] === 'text' || $response['type'] === 'button'|| $response['type'] === 'audio'|| $response['type'] === 'interactive'){
+                                        (new AutoReplyService)->checkAutoReply($chat, $isNewContact);
+                                    }
+                                // }
+                            }
+                        }
+                    }
+
+                    // Trigger webhook
+                    WebhookHelper::triggerWebhookEvent('message.received', [
+                        'data' => $res,
+                    ], $organization->id);
+                }
+            }
         } else if($res['field'] === 'message_template_status_update'){
             $response = $res['value'] ?? null;
             $template = Template::where('meta_id', $response['message_template_id'])->first();
@@ -193,6 +399,7 @@ class WebhookController extends BaseController
                 $organizationConfig->save();
             }
         } else if($res['field'] === 'phone_number_quality_update'){
+            //messaging_tier_limit
             $response = $res['value'] ?? null;
             $organizationConfig = Organization::where('id', $organization->id)->first();
             $metadataArray = $organizationConfig->metadata ? json_decode($organizationConfig->metadata, true) : [];
@@ -214,149 +421,106 @@ class WebhookController extends BaseController
             $updatedMetadataJson = json_encode($metadataArray);
             $organizationConfig->metadata = $updatedMetadataJson;
             $organizationConfig->save();
-        } else if ($res['field'] === 'smb_app_state_sync') {
-            Log::info("Processing SMB App State Sync for organization: " . $organization->id);
-            Log::info("Processing SMB App State Sync with data: " . json_encode($res));
-            $contacts = $res['value']['state_sync'] ?? [];
-            try {
-                foreach (array_chunk($contacts, 100) as $chunk) {
-                    SmbSyncContacts::dispatchAfterResponse($organization->id, $chunk);
-                }
-                return Response::json(['status' => 'success', 'message' => 'Contacts migrated successfully'], 200);
-            } catch (\Exception $e) {
-                Log::error("Error processing SMB App State Sync: " . $e->getMessage());
-                return Response::json(['error' => 'Failed to process SMB App State Sync'], 500);
-            }
-        } else if($res['field'] === 'history') {
-            Log::info('history fetched update: ' . $request->getContent());
-            try {
-                if (isset($res['value']['history'])) {
-                    foreach ($res['value']['history'] as $historyChunk) {
-                        if (!isset($historyChunk['threads'])) {
-                            continue;
-                        }
-
-                        foreach ($historyChunk['threads'] as $thread) {
-                            if (!isset($thread['messages'])) {
-                                continue;
-                            }
-
-                            // Map each history message to the format ProcessWebhookedMessages::dispatch() expects
-                            $mappedRes = [
-                                'value' => [
-                                    'contacts' => $res['value']['contacts'] ?? [],
-                                    'messages' => $thread['messages']
-                                ]
-                            ];
-
-                            // Pass to existing messages handler - HISTORY QUEUE (lowest priority)
-                            ProcessWebhookedMessages::dispatch($mappedRes, $organization, true, $thread['id'])
-                                ->onQueue('history')
-                                ->afterResponse();
-                        }
-                    }
-                } else if(isset($res['value']['message_echoes'])) {
-                    // Handle message echoes for media description - HISTORY QUEUE
-                    $res['value']['messages'] = $res['value']['message_echoes'];
-                    ProcessWebhookedMessages::dispatch($res, $organization, true)
-                        ->onQueue('history')
-                        ->afterResponse();
-                }
-
-            } catch(\Exception $e) {
-                Log::error("Error processing history webhook: " . $e->getMessage(), $e->getTrace());
-                return Response::json(['error' => 'Failed to process history webhook'], 500);
-            }
-
-            return Response::json(['status' => 'success']);
-        } else if($res['field'] == 'smb_message_echoes') {
-            $res['value']['messages'] = $res['value']['message_echoes'] ?? [];
-            try {
-                ProcessWebhookedMessages::dispatch($res, $organization, false, null, true)
-                    ->onQueue('default')
-                    ->afterResponse();
-
-            } catch (\Exception $e) {
-                Log::error("Error processing smb_message_echoes: " . $e->getMessage(), $e->getTrace());
-            }
-        } else if($res['field'] == 'calls') {
-            foreach (($res['value']['calls'] ?? []) as $call) {
-                // store the call with the corresponding organization and send pusher notification for the frontend
-                if($call['event'] == 'connect') { // create a new call
-                    $existingCall = Call::where('call_id', $call['id'])->first();
-                    if(!$existingCall) {
-                        $contact_number = sanitize_phone($call['from'])->formatE164();
-                        $contact = Contact::firstOrCreate(
-                            ['organization_id' => $organization->id, 'phone' => $contact_number],
-                            ['name' => $contact_number, 'deleted_at' => null]
-                        );
-                        $newCall = new Call();
-                        $newCall->call_id = $call['id'];
-                        $newCall->organization_id = $organization->id;
-                        $newCall->contact_id = $contact->id;
-                        $newCall->from = $call['from'];
-                        $newCall->to = $call['to'];
-                        $newCall->status = 'initiated';
-                        $newCall->direction = 'inbound';
-                        $newCall->session_id = null;
-                        $newCall->start_time = isset($call['timestamp']) ? Carbon::createFromTimestamp($call['timestamp']) : null;
-                        $newCall->metadata = $call['connection']['webrtc'] ?? null;
-                        $newCall->save();
-
-                        // Broadcast the new call event
-                        try {
-                            event(new \App\Events\IncomingCallEvent($newCall));
-                        } catch (Exception $e) {
-                            Log::error("Failed to broadcast NewCallEvent: " . $e->getMessage());
-                        }
-                    }
-                } elseif ($call['event'] == 'terminate') {
-                    $existingCall = Call::where('call_id', $call['id'])->first();
-                    if($existingCall) {
-                        $existingCall->status = strtolower($call['status']);
-                        $existingCall->end_time = Carbon::createFromTimestamp($call['end_time'] ?? now());
-                        $existingCall->duration = $call['duration'] ?? $existingCall->end_time - $existingCall->start_time;
-                        $existingCall->save();
-
-                        // Broadcast the updated call event
-                        try {
-                            event(new \App\Events\UpdateCallEvent($existingCall));
-                        } catch (Exception $e) {
-                            Log::error("Failed to broadcast UpdateCallEvent: " . $e->getMessage());
-                        }
-                    }
-                } else {
-                    Log::alert('Unknown call event: ' . json_encode($call));
-                }
-            }
-        } else {
-            Log::info('Unknown field in webhook: ' . json_encode($res));
         }
+
         return Response::json(['status' => 'success'], 200);
+    }
+
+    private function downloadMedia($mediaInfo, Organization $organization)
+    {
+        $metadata = json_decode($organization->metadata);
+
+        if (empty($metadata) || empty($metadata->whatsapp->access_token)) {
+            return $this->forbiddenResponse();
+        }
+
+        try {
+            $client = new Client();
+
+            $requestOptions = [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $metadata->whatsapp->access_token,
+                    'Content-Type' => 'application/json',
+                ],
+            ];
+
+            $response = $client->request('GET', $mediaInfo['url'], $requestOptions);
+
+            $fileContent = $response->getBody();
+            $fileName = $this->generateFilename($fileContent, $mediaInfo['mime_type']);
+
+            $storage = Setting::where('key', 'storage_system')->first()->value;
+
+            if($storage === 'local'){
+                $location = 'local';
+                $file = Storage::disk('local')->put('public/' . $fileName, $fileContent);
+                $mediaFilePath = $file;
+                $mediaUrl = rtrim(config('app.url'), '/') . '/media/' . 'public/' . $fileName;
+            } else if($storage === 'aws') {
+                $location = 'amazon';
+                $filePath = 'uploads/media/received/'  . $organization->id . '/' . Str::random(40) . time();
+                $file = Storage::disk('s3')->put($filePath, $fileContent);
+                $mediaUrl = Storage::disk('s3')->url($filePath);
+            }
+
+            $mediaData = [
+                'media_url' => $mediaUrl,
+                'location' => $location,
+            ];
+    
+            return $mediaData;
+        } catch (RequestException $e) {
+            Log::error("Error processing webhook: " . $e->getMessage());
+            return Response::json(['error' => 'Failed to download file'], 403);
+        }
+    }
+
+    private function generateFilename($fileContent, $mimeType)
+    {
+        // Generate a unique filename based on the file content
+        $hash = sha1($fileContent);
+
+        // Get the file extension from the media type
+        $extension = explode('/', $mimeType)[1];
+
+        // Combine the hash, timestamp, and extension to create a unique filename
+        $filename = "{$hash}_" . time() . ".{$extension}";
+
+        return $filename;
+    }
+
+    private function getMedia($mediaId, Organization $organization)
+    {
+        $metadata = json_decode($organization->metadata);
+
+        if (empty($metadata) || empty($metadata->whatsapp->access_token)) {
+            return $this->forbiddenResponse();
+        }
+
+        $client = new Client();
+        $responseObject = new \stdClass();
+
+        try {
+            $requestOptions = [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $metadata->whatsapp->access_token,
+                    'Content-Type' => 'application/json',
+                ],
+            ];
+
+            $response = $client->request('GET', "https://graph.facebook.com/v18.0/{$mediaId}", $requestOptions);
+
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (Exception $e) {
+            return Response::json(['error' => 'Method Invalid'], 400);
+        }
     }
 
     public function processWebhook(Request $request, $processor)
     {
         $paymentPlatform = $this->paymentPlatformResolver->resolveService($processor);
         session()->put('paymentPlatform', $processor);
-
+        
         return $paymentPlatform->handleWebhook($request);
     }
-
-    function forwardToStaging(string $rawBody, $identifier): void // relay to forward webhook to the staging environment
-    {
-        $staging_url = config('app.staging_url');
-        if($staging_url == null || $staging_url == '') return;
-
-        $stagingUrl = $staging_url . '/webhook/whatsapp/' . $identifier;
-
-        // Escape payload properly for shell use
-        $escapedBody = escapeshellarg($rawBody);
-        $escapedUrl = escapeshellarg($stagingUrl);
-
-        // Run curl in background, suppress output
-        $cmd = "curl -X POST -H 'Content-Type: application/json' -d $escapedBody $escapedUrl > /dev/null 2>&1 &";
-        exec($cmd);
-    }
-
 }

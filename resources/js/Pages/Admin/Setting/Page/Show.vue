@@ -15,7 +15,7 @@
                 <button @click="deletePage()" class="hover:bg-white rounded-full p-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="red" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM8 9h8v10H8zm7.5-5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </button>
-                <button @click="submitForm()" class="rounded-md bg-primary px-3 py-1 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Save') }}</button>
+                <button @click="submitForm()" class="rounded-md bg-primary px-3 py-1 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Save') }}</button>
             </div>
         </div>
         <form @submit.prevent="submitForm()">

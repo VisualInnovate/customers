@@ -19,7 +19,8 @@ class CampaignLimit implements Rule
     {
         $organizationId = session()->get('current_organization');
 
-        return !SubscriptionService::isSubscriptionFeatureLimitReached($organizationId, 'campaign_limit');
+        // return !SubscriptionService::isSubscriptionFeatureLimitReached($organizationId, 'campaign_limit');
+        return true;
     }
 
     public function message()

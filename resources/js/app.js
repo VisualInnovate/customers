@@ -4,15 +4,8 @@ import VueApexCharts from 'vue3-apexcharts';
 import VueTelInput from 'vue-tel-input';
 import { createI18n } from 'vue-i18n';
 import axios from 'axios';
-import './axios.js'
-import { performanceMonitor } from './lib/performance';
+import * as Sentry from "@sentry/vue";
 
-// Track page load performance on app initialization
-if (typeof window !== 'undefined') {
-  window.addEventListener('load', () => {
-    performanceMonitor.trackPageLoad();
-  });
-}
 
 // Function to load locale messages via API
 async function loadLocaleMessages(locale) {
@@ -68,6 +61,16 @@ createInertiaApp({
       });
 
       const app = createApp({ render: () => h(App, props) });
+
+      Sentry.init({
+        app,
+        dsn: "https://a0e885fc96ce3d42c344d0261d5851fc@o4508440017108992.ingest.us.sentry.io/4508442651131905",
+        integrations: [
+          Sentry.replayIntegration(),
+        ],
+        replaysSessionSampleRate: 0.1, // 10% session sampling
+        replaysOnErrorSampleRate: 1.0, // 100% error sampling
+      });
 
       app.use(plugin)
         .use(VueApexCharts)

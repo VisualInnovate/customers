@@ -28,7 +28,7 @@ class PaymentRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'plan' => [ 'required', 'exists:subscription_plans,id' ],
+            'amount' => [ 'required', 'numeric' ],
             'method' => [ 'required' ],
         ];
 

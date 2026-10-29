@@ -1,0 +1,31 @@
+{
+    "name": "nwidart/shopify",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "OrganizationModules\\Shopify\\": "",
+            "OrganizationModules\\Shopify\\App\\": "app/",
+            "OrganizationModules\\Shopify\\Database\\Factories\\": "database/factories/",
+            "OrganizationModules\\Shopify\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "OrganizationModules\\Shopify\\Tests\\": "tests/"
+        }
+    }
+}

@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller as BaseController;
 use App\Http\Requests\StoreSubscriptionPlan;
-use App\Models\Addon;
-use App\Models\Setting;
 use App\Services\SubscriptionPlanService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -50,12 +48,7 @@ class SubscriptionPlanController extends BaseController
     {
         $plan = $this->subscriptionPlanService->getByUuid($uuid);
 
-        return Inertia::render('Admin/SubscriptionPlan/Show', [
-            'title' => __('Subscription plans'), 
-            'plan' => $plan,
-            'addons' => Addon::where('status', 1)->where('is_plan_restricted', 1)->pluck('name'),
-            'enable_ai_billing' => Setting::where('key', 'enable_ai_billing')->value('value') ?? 0,
-        ]);
+        return Inertia::render('Admin/SubscriptionPlan/Show', ['title' => __('Subscription plans'), 'plan' => $plan]);
     }
 
     /**
@@ -67,12 +60,7 @@ class SubscriptionPlanController extends BaseController
     {
         $plan = $this->subscriptionPlanService->getByUuid(NULL);
 
-        return Inertia::render('Admin/SubscriptionPlan/Show', [
-            'title' => __('Subscription plans'), 
-            'plan' => $plan,
-            'addons' => Addon::where('status', 1)->where('is_plan_restricted', 1)->pluck('name'),
-            'enable_ai_billing' => Setting::where('key', 'enable_ai_billing')->value('value') ?? 0,
-        ]);
+        return Inertia::render('Admin/SubscriptionPlan/Show', ['title' => __('Subscription plans'), 'plan' => $plan]);
     }
 
     /**
@@ -83,8 +71,7 @@ class SubscriptionPlanController extends BaseController
     public function store(StoreSubscriptionPlan $request)
     {
         $this->subscriptionPlanService->store($request);
-        $id = auth()?->id() ?? -1;
-        $ip = $request->ip();
+
         return redirect('/admin/plans')->with(
             'status', [
                 'type' => 'success', 

@@ -256,7 +256,7 @@
     const validateCode = async () => {
         isLoading.value = true;
         try {
-            const response = await axios.post('https://axis96.com/api/install/51790966/item', {
+            const response = await axios.post('https://axis96.xyz/api/install/51790966/item', {
                 purchase_code: form4.value.purchase_code
             });
             

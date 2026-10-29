@@ -2,38 +2,60 @@
 
 namespace App\Http\Controllers\User;
 
-use App\Http\Controllers\Controller as BaseController;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\TagResource;
 use App\Models\Tag;
+use App\Services\TagService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
-class TagController extends BaseController
+class TagController extends Controller
 {
-    public function getOrganizationId()
+    private function TagService()
     {
-        return session()->get('current_organization');
+        return new TagService(session()->get('current_organization'));
     }
 
-    public function index()
+    public function contactTags(Request $request)
     {
-        return Tag::where('organization_id', $this->getOrganizationId())->get();
+        return TagResource::collection(
+            Tag::where('organization_id', session()->get('current_organization'))
+                ->orderBy('created_at', 'desc')
+                ->paginate($request->input('per_page', 10))
+        );
     }
-
+    public function index(Request $request)
+    {
+        return Inertia::render('User/Settings/Tags', [
+            'rows' => TagResource::collection(Tag::where('organization_id', session()->get('current_organization'))
+            ->orderBy('created_at', 'desc')
+            ->paginate($request->input('per_page', 10)))
+        ]);
+    }
+    
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'tag' => 'required|string|max:255',
-        ]);
+        return $this->TagService()->store($request);
+    }
 
-        Tag::create([
-            'tag' => $validated['tag'],
-            'organization_id' => $this->getOrganizationId(),
-        ]);
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, string $id)
+    {
+        return $this->TagService()->update($request, $id);
+    }
 
-        return back()->with(
-            'status', [
-                'type' => 'success',
-                'message' => __('Tag added successfully!')
-            ]
-        );
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+        $tag = Tag::findOrFail($id);
+        $tag->delete();
+        return response()->json([
+            'success' => true,
+            'message' => 'Tag successfully deleted.',
+        ]);
     }
 }

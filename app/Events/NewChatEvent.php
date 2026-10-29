@@ -25,9 +25,22 @@ class NewChatEvent implements ShouldBroadcast
      * @param mixed $chat
      * @param int $organizationId
      */
-    public function __construct($chat, $organizationId)
+    public function __construct($chat, $organizationId, $originalMessage = null)
     {
-        $this->chat = $chat;
+        if ($originalMessage) {
+            $this->chat = $chat;
+
+            // Ensure original_message is included within the value of chat
+            if (isset($this->chat['value'])) {
+                $this->chat['value']['original_message'] = $originalMessage;
+            } else {
+                // If there's no value, you can decide how to handle it
+                $this->chat['value'] = ['original_message' => $originalMessage];
+            }
+        } else {
+            // If no original message, just use the chat as is
+            $this->chat = $chat;
+        } 
         $this->organizationId = $organizationId;
     }
 
@@ -42,6 +55,7 @@ class NewChatEvent implements ShouldBroadcast
             // Check if Pusher settings are available
             if (config('broadcasting.connections.pusher.key') && config('broadcasting.connections.pusher.secret')) {
                 $channel = 'chats.' . 'ch' . $this->organizationId;
+                // chats.ch1
                 return new Channel($channel);
             } else {
                 // Log an error if Pusher settings are not configured
@@ -62,9 +76,6 @@ class NewChatEvent implements ShouldBroadcast
      */
     public function broadcastWith()
     {
-        $this->chat[0]['replyTo'] = $this->chat[0]['value']->replyTo ?? null;
-        return [
-            'chat' => $this->chat,
-        ];
+        return ['chat' => $this->chat];
     }
 }

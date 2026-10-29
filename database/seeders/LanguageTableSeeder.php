@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Language;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -48,12 +47,7 @@ class LanguageTableSeeder extends Seeder
             ],
         ];
 
-        foreach ($languages as $language) {
-            // Check for existing language by code
-            Language::firstOrCreate(
-                ['code' => $language['code']],
-                $language
-            );
-        }
+        // Insert data into the roles table
+        DB::table('languages')->insert($languages);
     }
 }

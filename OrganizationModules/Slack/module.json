@@ -1,0 +1,11 @@
+{
+    "name": "Slack",
+    "alias": "slack",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "OrganizationModules\\Slack\\App\\Providers\\SlackServiceProvider"
+    ],
+    "files": []
+}

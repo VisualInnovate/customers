@@ -17,7 +17,7 @@ class CreateOrganizationsTable extends Migration
             $table->bigIncrements('id');
             $table->char('uuid', 50)->unique();
             $table->string('identifier', 128);
-            $table->string('name')->nullable();
+            $table->string('name', 255)->nullable();
             $table->text('address')->nullable();
             $table->text('metadata')->nullable();
             $table->string('timezone', 128)->nullable();

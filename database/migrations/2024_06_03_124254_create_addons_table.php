@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->char('uuid', 50)->nullable(false);
             $table->string('category', 128);
-            $table->string('name');
+            $table->string('name', 255);
             $table->string('logo', 128);
             $table->text('description')->nullable();
             $table->text('metadata')->nullable();

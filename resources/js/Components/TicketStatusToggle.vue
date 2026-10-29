@@ -48,15 +48,11 @@
                 </span>
             </div>
         </div>
-        <div v-if="isOpen" class="absolute bg-white z-10 px-1 py-2 mt-2 shadow w-full rounded-md text-black">
+        <div v-if="isOpen" class="absolute bg-white z-10 px-1 py-2 mt-2 shadow w-fit rounded-md text-black">
             <div>
-                  <Link :href="'/chats?status=unread'" class="block px-2 py-1 cursor-pointer hover:bg-slate-100 rounded-md">
-                    {{ $t('Unread')}}
-                </Link>
                 <Link :href="'/chats?status=unassigned'" class="block px-2 py-1 cursor-pointer hover:bg-slate-100 rounded-md">
                     {{ $t('Unassigned')}} 
                 </Link>
-               
                 <Link :href="'/chats?status=open'" class="block px-2 py-1 cursor-pointer hover:bg-slate-100 rounded-md">
                     {{ $t('Open')}} 
                 </Link>

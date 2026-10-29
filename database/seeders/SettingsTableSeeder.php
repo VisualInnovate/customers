@@ -2,10 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Setting;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Str;
 
 class SettingsTableSeeder extends Seeder
 {
@@ -18,7 +16,7 @@ class SettingsTableSeeder extends Seeder
     {
         // Define the settings data
         $settings = [
-            ['key' => 'address', 'value' => null],
+            // ['key' => 'address', 'value' => null],
             ['key' => 'allow_facebook_login', 'value' => '0'],
             ['key' => 'allow_google_login', 'value' => '0'],
             ['key' => 'aws_access_key', 'value' => null],
@@ -67,19 +65,9 @@ class SettingsTableSeeder extends Seeder
             ['key' => 'trial_period', 'value' => '20'],
             ['key' => 'verify_email', 'value' => '0'],
             ['key' => 'app_environment', 'value' => 'local'],
-            ['key' => 'available_version', 'value' => null],
-            ['key' => 'is_update_available', 'value' => 0],
-            ['key' => 'last_update_check', 'value' => now()],
-            ['key' => 'release_date', 'value' => null],
-            ['key' => 'version', 'value' => null],
-            ['key' => 'whatsapp_callback_token', 'value' => now()->format('YmdHis') . Str::random(4)]
         ];
 
-        foreach ($settings as $setting) {
-            Setting::firstOrCreate(
-                ['key' => $setting['key']], // Search by key
-                ['value' => $setting['value']]
-            );
-        }
+        // Insert data into the settings table
+        // DB::table('settings')->insert($settings);
     }
 }

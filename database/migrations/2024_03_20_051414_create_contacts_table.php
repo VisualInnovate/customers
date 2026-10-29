@@ -17,11 +17,11 @@ class CreateContactsTable extends Migration
             $table->bigIncrements('id');
             $table->char('uuid', 50)->unique();
             $table->integer('organization_id');
-            $table->string('first_name')->nullable();
-            $table->string('last_name')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('email')->nullable();
-            $table->string('avatar')->nullable();
+            $table->string('first_name', 128)->nullable();
+            $table->string('last_name', 128)->nullable();
+            $table->string('phone', 191)->nullable();
+            $table->string('email', 128)->nullable();
+            $table->string('avatar', 255)->nullable();
             $table->text('address')->nullable();
             $table->integer('contact_group_id')->nullable();
             $table->tinyInteger('is_favorite')->default(0);

@@ -11,6 +11,9 @@ module.exports = {
       colors: {
         primary: '#034737',
         secondary: '#008000',
+        customBlue: '#1264a3',
+        'primary-light': '#04413373',
+        'primary-light-2': '#bbcac773',
       },
       fontFamily: {
         'Outfit': ['Outfit', 'Helvetica', 'Arial', 'sans-serif'],

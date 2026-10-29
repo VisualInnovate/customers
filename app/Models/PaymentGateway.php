@@ -10,9 +10,6 @@ class PaymentGateway extends Model {
 
     protected $guarded = [];
     public $timestamps = true;
-    protected $casts = [
-        'metadata' => 'json'
-    ];
 
     public function listAll()
     {

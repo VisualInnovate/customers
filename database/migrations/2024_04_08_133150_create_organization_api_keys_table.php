@@ -15,7 +15,7 @@ class CreateOrganizationApiKeysTable extends Migration
             $table->id();
             $table->char('uuid', 50);
             $table->unsignedBigInteger('organization_id');
-            $table->string('token')->unique();
+            $table->string('token', 255)->unique();
             $table->softDeletes();
             $table->timestamps();
         });

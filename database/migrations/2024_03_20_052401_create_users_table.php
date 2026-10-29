@@ -28,6 +28,7 @@ class CreateUsersTable extends Migration
             $table->text('meta')->nullable();
             $table->text('plan')->nullable();
             $table->unsignedBigInteger('plan_id')->nullable();
+            $table->unsignedBigInteger('admin_id')->nullable();
             $table->date('will_expire')->nullable();
             $table->rememberToken();
             $table->timestamps();

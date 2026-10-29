@@ -46,7 +46,6 @@ class LangService
             $language->name = $request->name;
             $language->code = $request->code;
             $language->status = $request->status;
-            $language->is_rtl = $request->is_rtl ?? false;
             $language->save();
 
             if($id === null || $request->code !== $oldCode){

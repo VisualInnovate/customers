@@ -26,34 +26,29 @@ class CampaignService
 {
     use TemplateTrait;
 
-    public function store(object $request){
+    public function store(object $request)
+    {
         $organizationId = session()->get('current_organization');
 
         $timezone = Setting::where('key', 'timezone')->value('value');
-
-        // Use singleton organization instance
-        $organization = current_organization();
-        if (!$organization || $organization->id !== $organizationId) {
-            $organization = Organization::find($organizationId);
-        }
-
+        $organization = Organization::find($organizationId);
         $organizationMetadata = json_decode($organization->metadata ?? '{}', true);
         $timezone = $organizationMetadata['timezone'] ?? $timezone;
 
-        $template = template_by_uuid($request->template);
+        $template = Template::where('uuid', $request->template)->first();
         $contactGroup = ContactGroup::where('uuid', $request->contacts)->first();
 
         try {
             DB::transaction(function () use ($request, $organizationId, $template, $contactGroup, $timezone) {
                 //Request metadata
                 $mediaId = null;
-                if(in_array($request->header['format'], ['IMAGE', 'DOCUMENT', 'VIDEO'])){
+                if (in_array($request->header['format'], ['IMAGE', 'DOCUMENT', 'VIDEO'])) {
                     $header = $request->header;
-                    
+
                     if ($request->header['parameters']) {
                         $metadata['header']['format'] = $header['format'];
                         $metadata['header']['parameters'] = [];
-                
+
                         foreach ($request->header['parameters'] as $key => $parameter) {
                             if ($parameter['selection'] === 'upload') {
                                 //$path = $parameter['value']->store('public');
@@ -63,16 +58,16 @@ class CampaignService
                                 $fileName = $parameter['value']->getClientOriginalName();
                                 $fileContent = $parameter['value'];
 
-                                if($storage === 'local'){
+                                if ($storage === 'local') {
                                     $file = Storage::disk('local')->put('public', $fileContent);
                                     $mediaFilePath = $file;
-                    
+
                                     $mediaUrl = rtrim(config('app.url'), '/') . '/media/' . ltrim($mediaFilePath, '/');
-                                } else if($storage === 'aws') {
+                                } else if ($storage === 'aws') {
                                     $file = $parameter['value'];
                                     $uploadedFile = $file->store('uploads/media/sent/' . $organizationId, 's3');
                                     $mediaFilePath = Storage::disk('s3')->url($uploadedFile);
-                    
+
                                     $mediaUrl = $mediaFilePath;
                                 }
 
@@ -90,13 +85,16 @@ class CampaignService
 
                                 $mediaId = $chatMedia->id;
                             } else {
-                                $mediaUrl = $parameter['value'];
+                                $mediaUrl = $template->media->path;
+                                $mediaId = $template->media->id;
+                                $mediaName = $template->media->name;
                             }
-                
+
                             $metadata['header']['parameters'][] = [
                                 'type' => $parameter['type'],
                                 'selection' => $parameter['selection'],
                                 'value' => $mediaUrl,
+                                'name' => $mediaName,
                             ];
                         }
                     }
@@ -149,7 +147,8 @@ class CampaignService
         ];
     }
 
-    public function sendCampaign(){
+    public function sendCampaign()
+    {
         //Laravel jobs implementation
         SendCampaignJob::dispatch();
     }
@@ -162,16 +161,17 @@ class CampaignService
         ]);
     }
 
-    private function getContentTypeFromUrl($url) {
+    private function getContentTypeFromUrl($url)
+    {
         try {
             // Make a HEAD request to fetch headers only
             $response = Http::head($url);
-    
+
             // Check if the Content-Type header is present
             if ($response->hasHeader('Content-Type')) {
                 return $response->header('Content-Type');
             }
-    
+
             return null;
         } catch (\Exception $e) {
             // Log the error for debugging
@@ -180,14 +180,15 @@ class CampaignService
         }
     }
 
-    private function getMediaSizeInBytesFromUrl($url) {
+    private function getMediaSizeInBytesFromUrl($url)
+    {
         $url = ltrim($url, '/');
         $imageContent = file_get_contents($url);
-    
+
         if ($imageContent !== false) {
             return strlen($imageContent);
         }
-    
+
         return null;
     }
 }

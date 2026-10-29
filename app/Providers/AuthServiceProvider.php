@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
+// use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -21,11 +21,6 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerPolicies();
-
-        // Allow only admin role to manage global saved replies
-        Gate::define('manage-global-saved-replies', function ($user) {
-            return isset($user->role) && $user->role === 'admin';
-        });
+        //
     }
 }

@@ -17,9 +17,15 @@ class ContactResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = parent::toArray($request);
-        // Use the cached unread_count column to avoid N+1 query problem
-        // If last message was outbound, consider contact as read
-        $data['unread_messages'] = ($this->unread_count ?? 0);
+
+        $data['unread_messages'] = $this->chats()
+            ->where('type', 'inbound')
+            ->whereNull('deleted_at')
+            ->where('is_read', 0)
+            ->count();
+
+        $data['tags'] = $this->tags;
+        
         return $data;
     }
 }

@@ -17,52 +17,30 @@ $providers = [
     App\Providers\BroadcastConfigServiceProvider::class,
     App\Providers\MailConfigServiceProvider::class,
     App\Providers\RouteServiceProvider::class,
-    App\Providers\TelescopeServiceProvider::class,
-    App\Providers\OrganizationServiceProvider::class,
     App\Providers\RecaptchaServiceProvider::class,
     Mews\Purifier\PurifierServiceProvider::class,
 ];
 
 // Conditionally add EmbeddedSignupServiceProvider if it exists
-if (is_dir(base_path('modules/EmbeddedSignup')) && class_exists(\Modules\EmbeddedSignup\Providers\EmbeddedSignupServiceProvider::class)){
+if (class_exists(\Modules\EmbeddedSignup\Providers\EmbeddedSignupServiceProvider::class)) {
     $providers[] = \Modules\EmbeddedSignup\Providers\EmbeddedSignupServiceProvider::class;
 }
 
-if (is_dir(base_path('modules/Clickpaysa')) && class_exists(\Modules\Clickpaysa\Providers\ClickpayServiceProvider::class)) {
-    $providers[] = \Modules\Clickpaysa\Providers\ClickpayServiceProvider::class;
-}
+// if (class_exists(\Modules\Clickpaysa\Providers\ClickpayServiceProvider::class)) {
+//     $providers[] = \Modules\Clickpaysa\Providers\ClickpayServiceProvider::class;
+// }
 
-if (is_dir(base_path('modules/Razorpay')) && class_exists(\Modules\Razorpay\Providers\RazorpayServiceProvider::class)) {
+if (class_exists(\Modules\Razorpay\Providers\RazorpayServiceProvider::class)) {
     $providers[] = \Modules\Razorpay\Providers\RazorpayServiceProvider::class;
 }
 
-if (is_dir(base_path('modules/IntelliReply')) && class_exists(\Modules\IntelliReply\Providers\IntelliServiceProvider::class)) {
+if (class_exists(\Modules\IntelliReply\Providers\IntelliServiceProvider::class)) {
     $providers[] = \Modules\IntelliReply\Providers\IntelliServiceProvider::class;
 }
 
-if (is_dir(base_path('modules/FlowBuilder')) && class_exists(\Modules\FlowBuilder\Providers\FlowBuilderServiceProvider::class)) {
-    $providers[] = \Modules\FlowBuilder\Providers\FlowBuilderServiceProvider::class;
-}
-
-if (is_dir(base_path('modules/SocketIo')) && class_exists(\Modules\SocketIo\Providers\SocketIoServiceProvider::class)) {
-    $providers[] = \Modules\SocketIo\Providers\SocketIoServiceProvider::class;
-}
-
-if (is_dir(base_path('modules/Webhook')) && class_exists(\Modules\Webhook\Providers\WebhookServiceProvider::class)) {
-    $providers[] = \Modules\Webhook\Providers\WebhookServiceProvider::class;
-}
-
-if (is_dir(base_path('modules/Pabbly')) && class_exists(\Modules\Pabbly\Providers\PabblyServiceProvider::class)) {
-    $providers[] = \Modules\Pabbly\Providers\PabblyServiceProvider::class;
-}
-
-if (is_dir(base_path('modules/Woocommerce')) && class_exists(\Modules\Woocommerce\Providers\WoocommerceServiceProvider::class)) {
-    $providers[] = \Modules\Woocommerce\Providers\WoocommerceServiceProvider::class;
-}
-
-if (is_dir(base_path('modules/Shopify')) && class_exists(\Modules\Shopify\Providers\ShopifyServiceProvider::class)) {
-    $providers[] = \Modules\Shopify\Providers\ShopifyServiceProvider::class;
-}
+// if (class_exists(\Modules\FlowBuilder\Providers\FlowBuilderServiceProvider::class)) {
+//     $providers[] = \Modules\FlowBuilder\Providers\FlowBuilderServiceProvider::class;
+// }
 
 return [
 
@@ -120,7 +98,6 @@ return [
 
     'asset_url' => env('ASSET_URL'),
 
-    'staging_url' => env('STAGING_URL'),
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
@@ -132,7 +109,7 @@ return [
     |
     */
 
-    'timezone' => 'Asia/Kuwait',
+    'timezone' => 'UTC',
 
     /*
     |--------------------------------------------------------------------------

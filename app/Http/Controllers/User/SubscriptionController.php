@@ -5,12 +5,9 @@ namespace App\Http\Controllers\User;
 use DB;
 use App\Http\Controllers\Controller as BaseController;
 use App\Helpers\SubscriptionHelper;
-use App\Http\Requests\CouponRequest;
-use App\Http\Resources\SubscriptionPlanResource;
 use App\Models\Addon;
 use App\Models\PaymentGateway;
 use App\Models\Subscription;
-use App\Models\SubscriptionPlan;
 use App\Models\Setting;
 use App\Models\TaxRate;
 use App\Services\BillingService;
@@ -37,20 +34,10 @@ class SubscriptionController extends BaseController
         $organizationId = session()->get('current_organization');
         $data['subscription'] = Subscription::with('plan')->where('organization_id', session()->get('current_organization'))->first();
         $data['taxes'] = TaxRate::where('status', 'active')->where('deleted_at', NULL)->get();
-        $data['plans'] = SubscriptionPlanResource::collection(
-            SubscriptionPlan::whereNull('deleted_at')
-                ->where(function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->query('search'). '%');
-                })
-                ->where('status', 'active')
-                ->latest()
-                ->paginate(10)
-        );
+        $data['plans'] = $this->subscriptionPlanService->get($request);
         $data['methods'] = $this->paymentMethods();
         $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']->plan_id);
         $data['title'] = __('Billing');
-        $data['addons'] = Addon::where('status', 1)->where('is_plan_restricted', 1)->pluck('is_active', 'name');
-        $data['enable_ai_billing'] = Setting::where('key', 'enable_ai_billing')->value('value') ?? 0;
 
         return Inertia::render('User/Billing/Plan', $data);
     }
@@ -61,13 +48,14 @@ class SubscriptionController extends BaseController
         $organizationId = session()->get('current_organization');
 
         $response = SubscriptionService::store($request, $organizationId, $planId, $userId);
-        if(!empty($response)){
-            if($response !== false){
+        // dd($response);
+        if($response){
+            if(!isset($response->success)){
                 return inertia::location($response);
             } else {
                 return Redirect::back()->with(
                     'status', [
-                        'type' => 'error',
+                        'type' => 'error', 
                         'message' => $response->error
                     ]
                 );
@@ -75,7 +63,7 @@ class SubscriptionController extends BaseController
         } else {
             return Redirect::route('user.billing.index')->with(
                 'status', [
-                    'type' => 'success',
+                    'type' => 'success', 
                     'message' => __('Your subscription has been updated successfully!')
                 ]
             );
@@ -84,33 +72,6 @@ class SubscriptionController extends BaseController
 
     public function show($id)
     {
-        $organizationId = session()->get('current_organization');
-
-        return Redirect::back()->with('response_data', [
-            'data' => SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $id),
-        ]);
-    }
-
-    public function applyCoupon(CouponRequest $request, $id)
-    {
-        session()->put('applied_coupon', $request->input('coupon'));
-        $organizationId = session()->get('current_organization');
-
-        return Redirect::back()->with('response_data', [
-            'data' => SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $id),
-        ]);
-
-        /*return Redirect::back()->with(
-            'status', [
-                'type' => 'success', 
-                'message' => __('Coupon applied successfully!')
-            ]
-        );*/
-    }
-
-    public function removeCoupon(Request $request, $id)
-    {
-        session()->forget('applied_coupon');
         $organizationId = session()->get('current_organization');
 
         return Redirect::back()->with('response_data', [
@@ -136,7 +97,11 @@ class SubscriptionController extends BaseController
         $activeAddons = Addon::where('category', 'payments')
             ->where('status', 1)
             ->get()
-            ->where('is_active', 1)
+            ->filter(function ($addon) {
+                $addonName = strtolower($addon->name);
+                $settingKey = "{$addonName}_active";
+                return Setting::where('key', $settingKey)->where('value', 1)->exists();
+            })
             ->pluck('name')
             ->toArray();
 

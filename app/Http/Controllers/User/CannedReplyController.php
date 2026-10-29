@@ -4,7 +4,6 @@ namespace App\Http\Controllers\User;
 
 use DB;
 use App\Http\Controllers\Controller as BaseController;
-use App\Helpers\CustomHelper;
 use App\Http\Requests\StoreAutoReply;
 use App\Models\Addon;
 use App\Models\AutoReply;
@@ -13,7 +12,6 @@ use App\Services\AutoReplyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
-use Helper;
 
 class CannedReplyController extends BaseController
 {
@@ -26,8 +24,13 @@ class CannedReplyController extends BaseController
 
     public function index(Request $request){
         $rows = $this->autoReplyService->getRows($request);
-        $aimodule = CustomHelper::isModuleEnabled('AI Assistant');
-        $fbmodule = CustomHelper::isModuleEnabled('Flow builder');
+        $aiAssistantAddon = Addon::where('name', 'AI Assistant')->first();
+        $aiAssistantSetting = Setting::where('key', 'ai_assistant')->first();
+        $flowBuilderAddon = Addon::where('name', 'Flow builder')->first();
+        $flowBuilderSetting = Setting::where('key', 'flow_builder')->first();
+
+        $aimodule = $aiAssistantAddon && $aiAssistantAddon->status && $aiAssistantSetting && $aiAssistantSetting->value == 1;
+        $fbmodule = $flowBuilderAddon && $flowBuilderAddon->status && $flowBuilderSetting && $flowBuilderSetting->value == 1;
 
         return Inertia::render('User/Automation/Basic/Index', [ 
             'title' => __('Canned replies'), 

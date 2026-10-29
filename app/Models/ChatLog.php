@@ -34,7 +34,7 @@ class ChatLog extends Model
         return $this->morphTo('entity');
     }
 
-    public function getRelatedEntitiesAttribute($organizationId = null)
+    public function getRelatedEntitiesAttribute()
     {
         $entityType = $this->entity_type;
         $entityId = $this->entity_id;
@@ -42,10 +42,34 @@ class ChatLog extends Model
 
         switch ($entityType) {
             case 'chat':
-                $relatedEntity = Chat::with('media', 'user', 'logs')
-                    ->when($organizationId, function ($q) use ($organizationId) {
-                        $q->where('organization_id', $organizationId);
-                    })
+                $relatedEntity = Chat::where('organization_id', 23)->with('media', 'user', 'logs')->find($entityId);
+                break;
+            case 'ticket':
+                $relatedEntity = ChatTicketLog::find($entityId);
+                break;
+            case 'notes':
+                $relatedEntity = ChatNote::find($entityId);
+                break;
+        }
+
+        // if ($relatedEntity) {
+        //     // Convert created_at timestamp to the desired timezone
+        //     $relatedEntity->created_at = DateTimeHelper::convertToOrganizationTimezone($relatedEntity->created_at);
+        // }
+
+        return $relatedEntity;
+    }
+
+    public function getRelatedEntitiesWithOrgId($organizationId)
+    {
+        $entityType = $this->entity_type;
+        $entityId = $this->entity_id;
+        $relatedEntity = null;
+
+        switch ($entityType) {
+            case 'chat':
+                $relatedEntity = Chat::where('organization_id', $organizationId)
+                    ->with(['media', 'user', 'logs'])
                     ->find($entityId);
                 break;
             case 'ticket':
@@ -58,25 +82,4 @@ class ChatLog extends Model
 
         return $relatedEntity;
     }
-
-    // public function getRelatedEntitiesAttribute()
-    // {
-    //     $entityType = $this->entity_type;
-    //     $entityId = $this->entity_id;
-    //     $relatedEntity = null;
-
-    //     switch ($entityType) {
-    //         case 'chat':
-    //             $relatedEntity = Chat::with('media', 'user', 'logs')->find($entityId);
-    //             break;
-    //         case 'ticket':
-    //             $relatedEntity = ChatTicketLog::find($entityId);
-    //             break;
-    //         case 'notes':
-    //             $relatedEntity = ChatNote::find($entityId);
-    //             break;
-    //     }
-
-    //     return $relatedEntity;
-    // }
 }

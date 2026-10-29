@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div>
-                    <Link href="/admin/organizations" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
+                    <Link href="/admin/organizations" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
                 </div>
             </div>
             <div v-if="props.organization" class="flex justify-between">
@@ -28,9 +28,12 @@
                 </div>
                 <div class="flex space-x-4">
                     <div>
-                        <button type="button" @click="toggleFormModal()" class="rounded-md bg-primary px-3 h-9 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Create transaction') }}</button>
+                        <button type="button" @click="toggleCashModal()" class="rounded-md bg-green-700 px-3 h-9 py-2 text-sm text-white shadow-sm hover:bg-green-800">{{ $t('Record cash payment') }}</button>
                     </div>
-                    <Link href="/admin/organizations" class="rounded-md h-9 bg-black px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
+                    <div>
+                        <button type="button" @click="toggleFormModal()" class="rounded-md bg-primary px-3 h-9 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Create transaction') }}</button>
+                    </div>
+                    <Link href="/admin/organizations" class="rounded-md h-9 bg-black px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
                 </div>
             </div>
             <div v-if="props.organization" class="flex border-b space-x-4 text-sm">
@@ -131,11 +134,37 @@
             </form>
         </div>
     </Modal>
+    <Modal :label="$t('Record cash payment')" :isOpen="isCashModalOpen">
+        <form @submit.prevent="submitCashPayment()" class="mt-5">
+            <div class="grid grid-cols-1 gap-x-6 gap-y-4">
+                <FormSelect v-model="cashForm.plan" :name="$t('Subscription plan')" :error="cashForm.errors.plan" :options="cashPlanOptions()" :class="'col-span-1'"/>
+                <FormInput v-model="cashForm.reference" :name="$t('Receipt reference or note')" :error="cashForm.errors.reference" :type="'text'" :class="'col-span-1'"/>
+                <p v-if="cashQuoteLoading" class="text-sm text-slate-600">{{ $t('Calculating amount...') }}</p>
+                <p v-else-if="cashQuoteError" class="text-sm text-[#b91c1c]">{{ cashQuoteError }}</p>
+                <p v-else-if="cashQuote !== null" class="text-sm text-slate-700">
+                    {{ $t('Amount to receive:') }} {{ Number(cashQuote).toFixed(2) }}
+                    <span v-if="Number(cashQuote) <= 0">{{ $t('No payment is due for this plan.') }}</span>
+                </p>
+                <label class="flex items-start gap-2 text-sm">
+                    <input v-model="cashForm.cash_received" type="checkbox" class="mt-1"/>
+                    <span>{{ $t('I confirm that the cash payment has actually been received.') }}</span>
+                </label>
+                <div v-if="cashForm.errors.cash_received" class="form-error text-[#b91c1c] text-xs">{{ cashForm.errors.cash_received }}</div>
+            </div>
+            <div class="mt-6 flex">
+                <button type="button" @click="toggleCashModal()" class="mr-4 rounded-md bg-slate-50 px-4 py-2 text-sm text-slate-600 hover:bg-slate-200">{{ $t('Cancel') }}</button>
+                <button type="submit" :disabled="cashForm.processing || cashQuoteLoading || cashQuote === null || Number(cashQuote) <= 0" class="rounded-md bg-green-700 px-4 py-2 text-sm text-white hover:bg-green-800 disabled:opacity-50">
+                    {{ $t('Confirm cash received') }}
+                </button>
+            </div>
+        </form>
+    </Modal>
 </template>
 <script setup>
     import AppLayout from "./../Layout/App.vue";
-    import{ ref } from 'vue';
+    import { ref, watch } from 'vue';
     import { Link, useForm } from "@inertiajs/vue3";
+    import axios from 'axios';
     import FormInput from '@/Components/FormInput.vue';
     import FormPhoneInput from '@/Components/FormPhoneInput.vue';
     import FormSelect from '@/Components/FormSelect.vue';
@@ -205,6 +234,16 @@
         description: null,
     })
 
+    const cashForm = useForm({
+        plan: props.organization?.subscription?.plan?.uuid ?? null,
+        reference: '',
+        cash_received: false,
+    })
+    const cashQuote = ref(null);
+    const cashQuoteLoading = ref(false);
+    const cashQuoteError = ref(null);
+    let cashQuoteRequest = 0;
+
     const roleOptions = () => {
         return props.plans.map((option) => ({
             value: option.uuid,
@@ -212,7 +251,17 @@
         }));
     };
 
+    const cashPlanOptions = () => {
+        return props.plans
+            .filter((plan) => plan.status === 'active' && !plan.deleted_at)
+            .map((plan) => ({
+                value: plan.uuid,
+                label: plan.name,
+            }));
+    };
+
     const isOpenFormModal = ref(false);
+    const isCashModalOpen = ref(false);
     
     const isLoading = ref(false);
 
@@ -245,6 +294,61 @@
     const toggleFormModal = () => {
         isOpenFormModal.value = !isOpenFormModal.value;
     }
+
+    const toggleCashModal = () => {
+        isCashModalOpen.value = !isCashModalOpen.value;
+        if (isCashModalOpen.value) {
+            loadCashPaymentQuote();
+        }
+    }
+
+    const loadCashPaymentQuote = async () => {
+        const requestId = ++cashQuoteRequest;
+        const selectedPlan = cashForm.plan;
+        cashQuote.value = null;
+        cashQuoteError.value = null;
+
+        if (!selectedPlan) {
+            return;
+        }
+
+        cashQuoteLoading.value = true;
+        try {
+            const response = await axios.get(`/admin/organizations/${props.organization.uuid}/cash-payment-quote`, {
+                params: { plan: selectedPlan },
+            });
+            if (requestId === cashQuoteRequest) {
+                cashQuote.value = response.data.amountDue;
+            }
+        } catch (error) {
+            if (requestId === cashQuoteRequest) {
+                cashQuoteError.value = error.response?.data?.message
+                    ?? error.response?.data?.errors?.plan?.[0]
+                    ?? trans('Unable to calculate the amount due. Please try again.');
+            }
+        } finally {
+            if (requestId === cashQuoteRequest) {
+                cashQuoteLoading.value = false;
+            }
+        }
+    };
+
+    watch(() => cashForm.plan, () => {
+        if (isCashModalOpen.value) {
+            loadCashPaymentQuote();
+        }
+    });
+
+    const submitCashPayment = () => {
+        cashForm.post(`/admin/organizations/${props.organization.uuid}/cash-payment`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                isCashModalOpen.value = false;
+                cashForm.reset('reference', 'cash_received');
+                changeTab('billing');
+            },
+        });
+    };
 
     const submitForm1 = async () => {
         form1.post('/admin/billing', {

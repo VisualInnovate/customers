@@ -7,7 +7,6 @@
         name: String,
         placeholder: String,
         type: String,
-        min: Number,
         className: String,
         labelClass: String,
         required: Boolean,
@@ -31,7 +30,6 @@
             :value="props.modelValue"
             @input="updateValue"
             :step="'any'"
-            :min="min"
             :placeholder="placeholder"
             :disabled="disabled"
             :required="required"

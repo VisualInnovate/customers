@@ -1,0 +1,1 @@
+import{_ as e}from"./_plugin-vue_export-helper-c27b6911.js";import{c,o as r}from"./app-10ad8d0d.js";const n={};function o(t,f){return r(),c("h1",null," articles njfgdkjhlfhlkhjlkbgf")}const a=e(n,[["render",o]]);export{a as default};

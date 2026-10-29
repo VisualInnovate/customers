@@ -1,4 +1,3 @@
-```vue
 <template>
     <AppLayout>
         <div class="bg-white md:bg-inherit pt-10 px-4 md:pt-8 md:py-8 md:pl-8 md:pr-0 rounded-[5px] text-[#000] overflow-y-hidden">
@@ -39,69 +38,26 @@
                                 <span>{{ $t('Ticket settings') }}</span>
                             </Link>
                         </li>
-                        <li v-if="moduleActive('AI Assistant') || moduleActive('Flow builder')" class="hover:bg-slate-50 hover:text-black rounded-[5px] px-1 truncate cursor-pointer" :class="$page.url.startsWith('/settings/automation') ? 'bg-slate-50 text-black' : ''">
-                            <Link rel="noopener noreferrer" href="/settings/automation" class="flex items-center p-2 space-x-3 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32"><path fill="currentColor" d="M16 27c-3.6 0-7.1-1.8-9.2-5H12v-2H4v8h2v-3.7c2.5 3 6.1 4.7 10 4.7zm15-4v-2h-2.1c-.1-.6-.4-1.2-.7-1.8l1.5-1.5l-1.4-1.4l-1.5 1.5c-.5-.3-1.1-.6-1.8-.7V15h-2v2.1c-.6.1-1.2.4-1.8.7l-1.5-1.5l-1.4 1.4l1.5 1.5c-.3.5-.6 1.1-.7 1.8H17v2h2.1c.1.6.4 1.2.7 1.8l-1.5 1.5l1.4 1.4l1.5-1.5c.5.3 1.1.6 1.8.7V29h2v-2.1c.6-.1 1.2-.4 1.8-.7l1.5 1.5l1.4-1.4l-1.5-1.5c.3-.5.6-1.1.7-1.8zm-7 2c-1.7 0-3-1.3-3-3s1.3-3 3-3s3 1.3 3 3s-1.3 3-3 3m-4-15h5.2C21.9 4.9 15.1 3.5 10 6.8c-3.1 2-5 5.5-5 9.2H3C3 8.8 8.8 3 16 3c3.9 0 7.5 1.7 10 4.7V4h2v8h-8z"></path></svg>
-                                <span>{{ $t('Automation settings') }}</span>
+                        <li class="hover:bg-slate-50 hover:text-black rounded-[5px] px-1 truncate cursor-pointer" :class="$page.url.startsWith('/settings/tags') ? 'bg-slate-50 text-black' : ''">
+                            <Link rel="noopener noreferrer" href="/settings/tags" class="flex items-center p-2 space-x-3 rounded-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 20 20"><path fill="currentColor" d="M.205 9.166A.65.65 0 0 1 0 8.696V3.358c-.01-.334.076-.639.27-.89C.5 2.172.848 2.024 1.299 2h5.518c.18 0 .353.07.48.194l9.015 8.798c.186.22.273.491.24.774c-.027.234-.124.45-.322.673l-5.443 5.236a1.12 1.12 0 0 1-.782.319c-.275 0-.532-.098-.818-.318zm1.15-.747l8.628 8.18l5.122-4.925l-8.57-8.36h-5.18zM9.976 3.32h-2.99a.667.667 0 0 1-.677-.657c0-.363.304-.658.678-.658h3.271c.18 0 .353.07.48.194l9.015 8.798c.187.22.273.492.24.775c-.027.234-.124.449-.322.673l-5.442 5.236a1.12 1.12 0 0 1-.782.318c-.276 0-.532-.097-.819-.318l-1.341-1.271a.643.643 0 0 1-.012-.93a.69.69 0 0 1 .958-.01l1.191 1.134l5.123-4.924zm-5.48 4.845c-1.122 0-2.032-.882-2.032-1.97c0-1.09.91-1.972 2.032-1.972s2.031.882 2.031 1.971s-.91 1.971-2.031 1.971m0-1.314a.667.667 0 0 0 .677-.657a.667.667 0 0 0-.677-.657a.667.667 0 0 0-.678.657c0 .363.304.657.678.657"/></svg>
+                                <span>{{ $t('Contacts Tags') }}</span>
                             </Link>
                         </li>
-                        <li class="hover:bg-slate-50 hover:text-black rounded-[5px] px-1 truncate cursor-pointer" :class="$page.url.startsWith('/settings/plugins') ? 'bg-slate-50 text-black' : ''">
-                            <Link rel="noopener noreferrer" href="/settings/plugins" class="flex items-center p-2 space-x-3 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#000" d="M22 13.5c0 1.76-1.3 3.22-3 3.46V20a2 2 0 0 1-2 2h-3.8v-.3a2.7 2.7 0 0 0-2.7-2.7c-1.5 0-2.7 1.21-2.7 2.7v.3H4a2 2 0 0 1-2-2v-3.8h.3C3.79 16.2 5 15 5 13.5s-1.21-2.7-2.7-2.7H2V7a2 2 0 0 1 2-2h3.04c.24-1.7 1.7-3 3.46-3s3.22 1.3 3.46 3H17a2 2 0 0 1 2 2v3.04c1.7.24 3 1.7 3 3.46M17 15h1.5a1.5 1.5 0 0 0 1.5-1.5a1.5 1.5 0 0 0-1.5-1.5H17V7h-5V5.5A1.5 1.5 0 0 0 10.5 4A1.5 1.5 0 0 0 9 5.5V7H4v2.12c1.76.68 3 2.38 3 4.38s-1.25 3.7-3 4.38V20h2.12a4.7 4.7 0 0 1 4.38-3c2 0 3.7 1.25 4.38 3H17z"/></svg>
-                                <span>{{ $t('Plugins') }}</span>
-                            </Link>
-                        </li>
-                        <!-- Module List with Key Input Button -->
-                      
                     </ul>
                 </div>
 
                 <div class="md:w-4/5 bg-white md:bg-inherit md:px-8 rounded-[5px] text-[#000] h-full md:overflow-y-auto">
-                    <slot :modules="modules"/>
+                    <slot/>
                 </div>
             </div>
         </div>
-        <!-- Key Input Form Modal -->
-        <KeyInputForm v-if="showKeyForm" :module="selectedModule" @close="closeKeyForm" @submit="submitKey" />
     </AppLayout>
 </template>
-
 <script setup>
-import { ref } from 'vue';
-import AppLayout from "./../Layout/App.vue";
-import { Link } from "@inertiajs/vue3";
-import KeyInputForm from "./KeyInputForm.vue";
-
-const props = defineProps({
-    modules: {
-        type: Array,
-        default: () => []
-    }
-});
-
-const moduleActive = (moduleName) => {
-    const module = props.modules.find((mod) => mod?.name === moduleName);
-    return module && module.status === 1;
-};
-
-const showKeyForm = ref(false);
-const selectedModule = ref(null);
-
-const openKeyForm = (module) => {
-    selectedModule.value = module;
-    showKeyForm.value = true;
-};
-
-const closeKeyForm = () => {
-    showKeyForm.value = false;
-    selectedModule.value = null;
-};
-
-const submitKey = (key) => {
-    // Simulate submitting the key to the backend via Inertia.js
-    console.log(`Submitting key for module ${selectedModule.value?.name}: ${key}`);
-    // Example: Inertia.post('/settings/modules/update-key', { module: selectedModule.value.name, key });
-    closeKeyForm();
-};
+    import AppLayout from "./../Layout/App.vue";
+    import { Link } from "@inertiajs/vue3";
+    import { ref } from 'vue';
+    import FormModal from '@/Components/FormModal.vue';
+    import { trans } from 'laravel-vue-i18n';
 </script>
-```

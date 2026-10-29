@@ -31,7 +31,7 @@ class TemplateService
         $config = $config ? json_decode($config, true) : [];
 
         $accessToken = $config['whatsapp']['access_token'] ?? null;
-        $apiVersion = config('graph.api_version');
+        $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
         $appId = $config['whatsapp']['app_id'] ?? null;
         $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
         $wabaId = $config['whatsapp']['waba_id'] ?? null;
@@ -56,18 +56,18 @@ class TemplateService
 
     private function getTemplatesListResponse(Request $request)
     {
-//        if ($request->wantsJson()) {
-//            $rows = Template::where('organization_id', $this->organizationId)->where('deleted_at', null)
-//                ->get()
-//                ->map(function ($row) {
-//                    return [
-//                        'value' => $row->id,
-//                        'label' => $row->name,
-//                    ];
-//                });
-//
-//            return response()->json([$rows]);
-//        }
+        if ($request->expectsJson()) {
+            $rows = Template::where('organization_id', $this->organizationId)->where('deleted_at', null)
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'value' => $row->id,
+                        'label' => $row->name,
+                    ];
+                });
+
+            return response()->json([$rows]);
+        }
 
         return Inertia::render('User/Templates/Index', [
             'title' => __('templates'),
@@ -80,13 +80,13 @@ class TemplateService
 
     private function getTemplateDetailResponse(Request $request, $uuid)
     {
-        if ($request->has('fetch_json')) {
-            $row = \App\Services\TemplateCacheService::getByUuid($uuid);
+        if ($request->expectsJson()) {
+            $row = Template::where('uuid', $uuid)->where('deleted_at', null)->first();
             return response()->json($row);
         }
 
         $data['languages'] = config('languages');
-        $data['template'] = \App\Services\TemplateCacheService::getByUuid($uuid);
+        $data['template'] = Template::where('uuid', $uuid)->first();
         $data['title'] = 'Edit Template';
         return Inertia::render('User/Templates/Edit', $data);
     }
@@ -99,10 +99,6 @@ class TemplateService
             
             return Inertia::render('User/Templates/Add', $data);
         } else if ($request->isMethod('post')){
-            if ($response = $this->abortIfDemo('create')) {
-                return $response;
-            }
-
             $validator = Validator::make($request->all(),[
                 'name' => 'required',
                 'category' => 'required',
@@ -117,31 +113,8 @@ class TemplateService
         }
     }
 
-    public function updateTemplate(Request $request, $uuid)
-    {
-        if ($response = $this->abortIfDemo('update')) {
-            return $response;
-        }
-
-        $validator = Validator::make($request->all(),[
-            'name' => 'required',
-            'category' => 'required',
-            'language' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false,'message'=>'Some required fields have not been filled','errors'=>$validator->messages()->get('*')]);
-        }
-
-        return $this->whatsappService->updateTemplate($request, $uuid);
-    }
-
     public function deleteTemplate($uuid)
     {
-        if ($response = $this->abortIfDemo('delete')) {
-            return $response;
-        }
-
         $query = $this->whatsappService->deleteTemplate($uuid);
 
         if($query->success === true){
@@ -155,27 +128,5 @@ class TemplateService
                 'message'=> __('something went wrong. Refresh the page and try again')
             ]);
         }
-    }
-
-    protected function abortIfDemo($type)
-    {
-        if (app()->environment('demo') && $this->organizationId == 1) {
-            if($type == 'delete'){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You are not allowed to do this in this demo account. To test template features please create your own account.'
-                ]);
-            } else {
-                $responseObject = new \stdClass();
-                $responseObject->success = false;
-                $responseObject->data = new \stdClass();
-                $responseObject->data->error = new \stdClass();
-                $responseObject->data->error->message = 'You are not allowed to do this in this demo account. To test template features please create your own account.';
-
-                return response()->json($responseObject);
-            }
-        }
-
-        return null;
     }
 }

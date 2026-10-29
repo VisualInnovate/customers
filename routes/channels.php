@@ -20,7 +20,3 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('chats', function ($user) {
     return true; // Adjust authentication logic if needed
 });
-
-Broadcast::channel('calls', function ($user) {
-    return true;
-});

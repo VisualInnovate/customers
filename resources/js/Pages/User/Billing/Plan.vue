@@ -72,39 +72,6 @@
                                     <h3>{{ getDetail(item?.metadata, 'team_limit') == '-1' ?  $t('Unlimited') : getDetail(item?.metadata, 'team_limit') }} {{ $t('Users') }}</h3>
                                 </div>
                             </div>
-                            <div v-for="(value, key) in filteredAddons(item)" class="flex justify-between text-sm">
-                                <div class="flex space-x-1">
-                                    <span>
-                                        <svg v-if="value == true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                        <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                    </span>
-                                    <h3>{{ key }}</h3>
-                                </div>
-                            </div>
-                            <div v-if="props.enable_ai_billing == 1" class="flex justify-between text-sm">
-                                <div class="flex space-x-1">
-                                    <span>
-                                        <svg v-if="getDetail(item?.metadata, 'ai_text_response_limit') && filteredAddons(item)['AI Assistant']"  xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                        <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                    </span>
-                                    <h3>
-                                        <span v-if="filteredAddons(item)['AI Assistant']">{{ getDetail(item?.metadata, 'ai_text_response_limit') == '-1' ?  $t('Unlimited') : getDetail(item?.metadata, 'ai_text_response_limit') }}</span>
-                                        {{ $t('AI Text Response Limit') }}
-                                    </h3>
-                                </div>
-                            </div>
-                            <div v-if="props.enable_ai_billing == 1" class="flex justify-between text-sm">
-                                <div class="flex space-x-1">
-                                    <span>
-                                        <svg v-if="getDetail(item?.metadata, 'ai_audio_response_limit') && filteredAddons(item)['AI Assistant']"  xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                        <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                    </span>
-                                    <h3>
-                                        <span v-if="filteredAddons(item)['AI Assistant']">{{ getDetail(item?.metadata, 'ai_audio_response_limit') == '-1' ?  $t('Unlimited') : getDetail(item?.metadata, 'ai_audio_response_limit') }}</span>
-                                        {{ $t('AI Audio Response Limit') }}
-                                    </h3>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -151,39 +118,13 @@
                                     <h3>{{ debit.total }}</h3>
                                 </div>
                             </div>
-                            <div v-if="parseFloat(amountDue) > 0" class="bg-slate-100 px-2 py-2 space-y-2 rounded-md mt-2 mb-2">
-                                <div class="text-sm">
-                                    <div class="text-sm border-b border-dashed">{{ $t('Coupon code') }}</div>
-                                    <form v-if="coupon.length === 0" @submit.prevent="applyCoupon" class="mt-2 bg-white w-full rounded-md border-0 py-1 pl-2 pr-1 text-gray-900 shadow-sm outline-none ring-1 ring-inset placeholder:text-gray-400 sm:text-sm sm:leading-6">
-                                        <div class="flex items-center justify-between">
-                                            <input v-model="form1.coupon" class="h-full w-3/4 outline-none">
-                                            <button :class="['h-full w-[fit-content] py-0.5 px-2 text-[12px] flex items-center justify-center bg-primary text-white rounded-md', { 'opacity-50': form1.processing }]" :disabled="form1.processing">
-                                                <svg v-if="form1.processing" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity=".5"/><path fill="currentColor" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate"/></path></svg>
-                                                <span v-else>{{ $t('Apply') }}</span>
-                                            </button>
-                                        </div>
-                                        <span class="text-red-500 text-xs" v-if="form1.errors.coupon">{{ form1.errors.coupon }}</span>
-                                    </form>
-                                    
-                                    <div v-else class="mt-2 flex justify-between text-sm">
-                                        <div class="flex items-center">
-                                            <h3>{{ coupon?.code }}</h3> 
-                                            <span v-if="coupon?.type == 'percentage'" class="">({{ coupon?.amount }}% OFF)</span>
-                                            <button @click="removeCoupon" class="text-red-500">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20a8 8 0 1 1 0-16a8 8 0 0 1 0 16M9.707 8.293a1 1 0 0 0-1.414 1.414L10.586 12l-2.293 2.293a1 1 0 1 0 1.414 1.414L12 13.414l2.293 2.293a1 1 0 0 0 1.414-1.414L13.414 12l2.293-2.293a1 1 0 0 0-1.414-1.414L12 10.586z"/></svg>
-                                            </button>
-                                        </div>
-                                        <h3 class="text-red-500">{{ coupon?.discount }}</h3>
-                                    </div>
-                                </div>
-                            </div>
                             <div class="flex justify-between text-xl mt-4 mb-4">
                                 <h3>{{ $t('Total due') }}</h3>
                                 <h3>{{ amountDue }}</h3>
                             </div>
                             <hr>
-                            <h2 v-if="parseFloat(amountDue) > 0" class="text-[14px] mt-3 mb-2">{{ $t('Pay via') }}</h2>
-                            <div v-if="parseFloat(amountDue) > 0" class="flex grid grid-cols-2 gap-2">
+                            <h2 v-if="parseInt(amountDue) > 0" class="text-[14px] mt-3 mb-2">{{ $t('Pay via') }}</h2>
+                            <div v-if="parseInt(amountDue) > 0" class="flex grid grid-cols-2 gap-2">
                                 <div v-for="(item, index) in props.methods" :key="index" class="">
                                     <div class="flex items-center">
                                         <label @click="selectPayment(item.name)" for="myCheckbox" class="cursor-pointer">
@@ -198,7 +139,7 @@
                                 </div>
                             </div>
                             <div class="mt-8">
-                                <button v-if="(buttonLoading == false && form.method != null) || (buttonLoading == false && amountDue <= 0)" @click="submitForm()" type="button" class="w-full flex justify-center items-center space-x-1 rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                                <button v-if="(buttonLoading == false && form.method != null) || (buttonLoading == false && amountDue <= 0)" @click="submitForm()" type="button" class="w-full flex justify-center items-center space-x-1 rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12 13a1.49 1.49 0 0 0-1 2.61V17a1 1 0 0 0 2 0v-1.39A1.49 1.49 0 0 0 12 13m5-4V7A5 5 0 0 0 7 7v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3M9 7a3 3 0 0 1 6 0v2H9Zm9 12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1Z"/></svg>
                                     <span>{{ $t('Continue') }}</span>
                                 </button>
@@ -220,18 +161,12 @@
     import AppLayout from "./../Layout/App.vue";
     import { router, useForm } from "@inertiajs/vue3";
     import { ref } from 'vue';
-    import { Link } from "@inertiajs/vue3";
 
-    const props = defineProps(['addons', 'enable_ai_billing', 'plans', 'methods', 'subscription', 'subscriptionDetails']);
-    const subscriptionDetails = ref(props.subscriptionDetails);
+    const props = defineProps({ plans: Object, methods: Object, subscription: Object, subscriptionDetails: Object });
 
     const form = useForm({
         'plan': props.subscription?.plan_id,
         'method': null,
-    });
-
-    const form1 = useForm({
-        'coupon': subscriptionDetails.value?.coupon?.code,
     });
 
     const buttonLoading = ref(false);
@@ -242,14 +177,13 @@
         amount: props.subscription?.plan?.price,
     });
 
-    const grossAmount = ref(subscriptionDetails.value?.grossAmount);
-    const netAmount = ref(subscriptionDetails.value?.netAmount);
-    const amountDue = ref(subscriptionDetails.value?.amountDue);
-    const taxRates = ref(subscriptionDetails.value?.taxRates);
-    const credit = ref(subscriptionDetails.value?.credit);
-    const debit = ref(subscriptionDetails.value?.debit);
-    const basePrice = ref(subscriptionDetails.value?.basePrice);
-    const coupon = ref(subscriptionDetails.value?.coupon);
+    const grossAmount = ref(props.subscriptionDetails?.grossAmount);
+    const netAmount = ref(props.subscriptionDetails?.netAmount);
+    const amountDue = ref(props.subscriptionDetails?.amountDue);
+    const taxRates = ref(props.subscriptionDetails?.taxRates);
+    const credit = ref(props.subscriptionDetails?.credit);
+    const debit = ref(props.subscriptionDetails?.debit);
+    const basePrice = ref(props.subscriptionDetails?.basePrice);
 
     const selectPlan = (plan, name, period, amount) => {
         form.plan = plan;
@@ -269,21 +203,6 @@
             return null;
         }
     }
-    
-    const filteredAddons = (item) => {
-        const addons = JSON.parse(item.metadata)['addons'];
-
-        if (!addons || typeof addons !== 'object') {
-            return {}; // Return an empty object if addons is not valid
-        }
-
-        return Object.entries(props.addons).reduce((acc, [key, value]) => {
-            if(value === 1 && addons.hasOwnProperty(key)){
-                acc[key] = addons[key];
-            }
-            return acc;
-        }, {});
-    };
 
     const getPlanDetails = (planId) => {
         router.visit('/subscription/' + planId, {
@@ -292,7 +211,6 @@
             onSuccess: (response) => {
                 form.plan = planId;
                 const res = response.props.response_data.data;
-                subscriptionDetails.value = response.props.response_data.data;
                 grossAmount.value = res.grossAmount;
                 taxRates.value = res.taxRates;
                 netAmount.value = res.netAmount;
@@ -300,52 +218,8 @@
                 debit.value = res.debit;
                 basePrice.value = res.basePrice;
                 amountDue.value = res.amountDue;
-                coupon.value = res.coupon
             },
         })
-    }
-
-    const removeCoupon = () => {
-        const planId = form.plan;
-
-        router.visit('/subscription/coupon/remove/' + planId, {
-            method: 'get',
-            preserveState: true,
-            onSuccess: (response) => {
-                form.plan = planId;
-                const res = response.props.response_data.data;
-                subscriptionDetails.value = response.props.response_data.data;
-                grossAmount.value = res.grossAmount;
-                taxRates.value = res.taxRates;
-                netAmount.value = res.netAmount;
-                credit.value = res.credit;
-                debit.value = res.debit;
-                basePrice.value = res.basePrice;
-                amountDue.value = res.amountDue;
-                coupon.value = res.coupon
-            },
-        });
-    }
-
-    const applyCoupon = () => {
-        const planId = form.plan;
-        
-        form1.post('/subscription/coupon/apply/' + planId, {
-            preserveScroll: true,
-            onSuccess: (response) => {
-                form.plan = planId;
-                const res = response.props.response_data.data;
-                subscriptionDetails.value = response.props.response_data.data;
-                grossAmount.value = res.grossAmount;
-                taxRates.value = res.taxRates;
-                netAmount.value = res.netAmount;
-                credit.value = res.credit;
-                debit.value = res.debit;
-                basePrice.value = res.basePrice;
-                amountDue.value = res.amountDue;
-                coupon.value = res.coupon
-            },
-        });
     }
 
     const submitForm = async () => {
@@ -354,10 +228,5 @@
         form.post('/subscription', {
             preserveScroll: true,
         });
-    };
-
-    const convertToInt = (numberInput) => {
-        const cleanedNumber = String(numberInput).replace(/,/g, ''); // Remove commas
-        return parseFloat(cleanedNumber); // Convert to number and round down
     };
 </script>

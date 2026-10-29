@@ -19,7 +19,6 @@ use App\Models\TaxRate;
 use App\Models\Team;
 use App\Models\User;
 use App\Resolvers\PaymentPlatformResolver;
-use App\Services\Payment\PaymentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -49,19 +48,16 @@ class SubscriptionService
     public static function store($request, $organizationId, $planId, $userId)
     {
         $billingDetails = self::calculateSubscriptionBillingDetails($organizationId, $planId);
-
-        $response = false;
-
+        // $response = false;
         if($billingDetails['amountDue'] == 0){
             self::createBillingInvoice($billingDetails, $organizationId, $planId, $userId);
         } else {
-            $paymentService = new PaymentService($request['method']);
+            $paymentPlatform = (new PaymentPlatformResolver())->resolveService($request->method);
             session()->put('paymentPlatform', $request->method);
-
             $amountDue = str_replace(',', '', $billingDetails['amountDue']);
             $amountDue = (float)$amountDue;
-            $user = User::find($userId);
-            return $paymentService->checkout($user, $amountDue, $organizationId);
+            $response = $paymentPlatform->handlePayment($amountDue, $request->plan);
+            return $response;
         }
     }
 
@@ -129,10 +125,9 @@ class SubscriptionService
             ]);
 
             foreach($billingDetails['taxRates'] as $taxRate){
-                $taxRateAmount = str_replace(',', '', $taxRate['amount']);
                 $taxrate = BillingTaxRate::create([
                     'invoice_id' => $invoice->id,
-                    'rate' => $taxRateAmount,
+                    'rate' => $taxRate['amount'],
                     'amount' => $taxRate['percentage'],
                 ]);
             }
@@ -183,7 +178,7 @@ class SubscriptionService
         $subscriptionStatus = $currentSubscription->status;
 
         $selectedSubscriptionPlan = SubscriptionPlan::where('id', $selectedPlanId)->first();
-        $isTaxInclusive = Setting::where('key', 'is_tax_inclusive')->first()->value === '1';
+        $isTaxInclusive = (Setting::where('key', 'is_tax_inclusive')->value('value') ?? '1') === '1';
 
         $totalTaxPercentage = self::calculateTotalTaxPercentage();
 
@@ -224,32 +219,6 @@ class SubscriptionService
         // Ensure that amount due is not negative
         $amountDue = max(0, $amountDue);
 
-        //Apply coupon is amount due > 0
-        $coupon = [];
-        if($amountDue > 0){
-            $couponCode = session('applied_coupon');
-            $couponData = \App\Models\Coupon::where('code', $couponCode)
-                ->where('status', 'active')
-                ->whereNull('deleted_at')
-                ->first();
-
-            if ($couponData) {
-                if ($couponData->quantity_redeemed < $couponData->quantity) {
-                    $discount = ($amountDue * $couponData->percentage) / 100;
-                    $discount = min($discount, $amountDue);
-
-                    $coupon = [
-                        'code' => $couponData->code,
-                        'type' => 'percentage',
-                        'amount' => $couponData->percentage,
-                        'discount' => number_format($discount, 2)
-                    ];
-
-                    $amountDue = max(0, $amountDue - $discount);
-                }
-            }
-        }
-
         $response = [
             'isTaxInclusive' => $isTaxInclusive,
             'basePrice' => number_format($basePrice, 2),
@@ -267,7 +236,6 @@ class SubscriptionService
                 'available' => number_format($availableDebits, 2),
                 'total' => number_format($availableDebits, 2)
             ],
-            'coupon' => $coupon,
             'amountDue' => number_format($amountDue, 2)
         ];
 

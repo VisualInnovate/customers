@@ -42,16 +42,17 @@
     };
 </script>
 <template>
-    <div v-if="visible" class="mr-auto rounded-lg rounded-tl-none my-[0.1em] p-1 text-sm bg-white flex flex-col relative speech-bubble-left max-w-[25em]">
+    <div v-if="visible" class="mr-auto rounded-lg rounded-tl-none my-[0.1em] p-1 text-sm bg-white flex flex-col relative speech-bubble-left max-w-[35em]">
         <div v-if="parameters.header.format != null && parameters.header.format != 'TEXT'">
-            <div v-if="placeholder == true" class="bg-[#ccd0d5] mb-4 flex justify-center rounded py-8">
-                <img v-if="parameters.header.format === 'IMAGE'" :src="'/images/image-placeholder.png'">
+            <div v-if="placeholder == true" class="bg-[#ccd0d5] mb-4 flex justify-center rounded ">
+                <img class="max-h-[40vh] w-full " v-if="parameters.header.format === 'IMAGE'" :src="parameters?.header?.parameters[0]?.url  || '/images/image-placeholder.png'"  >
+            
                 <img v-if="parameters.header.format === 'VIDEO'" :src="'/images/video-placeholder.png'">
                 <img v-if="parameters.header.format === 'DOCUMENT'" :src="'/images/document-placeholder.png'">
             </div>
             <div v-else class="mb-4 flex justify-center rounded">
                 <div v-if="parameters.header.format === 'IMAGE'" class="relative w-full h-full">
-                    <img :src="parameters.header.parameters[0].value" alt="Image" class="rounded-md flex justify-center items-center z-1 w-full h-full" />
+                    <img :src="parameters.header.parameters[0].value" class="rounded-md flex justify-center items-center z-1 w-full h-full" />
                 </div>
                 <video v-if="parameters.header.format === 'VIDEO'" controls width="300" class="max-h-[350px]">
                     <source :src="parameters.header.parameters[0].value" type="video/mp4">

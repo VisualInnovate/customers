@@ -1,6 +1,5 @@
 <template>
-    {{ 'test' }}
-    <div :class="rtlClass">
+    <div>
         <div class="flex items-center bg-secondary/70 h-8 px-5 md:px-10 lg:px-20 2xl:px-60">
             <div class="text-sm text-white">
                 <div class="truncate w-[20em] md:w-full flex items-center gap-x-1">
@@ -10,7 +9,7 @@
                     {{ $t('Header.message') }}
                 </div>
             </div>
-            <div :class="[isRtl ? 'mr-auto' : 'ml-auto']">
+            <div class="ml-auto">
                 <LangToggle class="text-white" :languages="props.languages" :currentLanguage="props.currentLanguage" />
             </div>
         </div>
@@ -120,7 +119,6 @@
     import { ref, onMounted, onBeforeUnmount } from 'vue';
     import { Link } from "@inertiajs/vue3";
     import LangToggle from '@/Components/LangToggle.vue';
-    import { useRtl } from '@/Composables/useRtl'
 
     const config = computed(() => usePage().props.config);
 
@@ -130,8 +128,6 @@
     const instagramUrl = ref(null);
     const slackUrl = ref(null);
     const linkedinUrl = ref(null);
-
-    const { rtlClass, isRtl } = useRtl()
 
     const parseSocials = () => {
         try {

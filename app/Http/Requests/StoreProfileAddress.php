@@ -28,11 +28,6 @@ class StoreProfileAddress extends FormRequest
             'state' => 'required',
             'zip' => 'required',
             'city' => 'required',
-            'enable_campaign_resend' => 'boolean',
-            'move_failed_contacts_to_group' => 'boolean',
-            'resend_intervals' => 'nullable|array',
-            'resend_intervals.*' => 'integer|min:1|max:24',
-            'failed_campaign_group' => 'required_if:move_failed_contacts_to_group,true|nullable|exists:contact_groups,uuid',
         ];
 
         return $rules;

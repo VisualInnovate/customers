@@ -1,95 +1,114 @@
-<script setup>
-import { ref, onMounted } from 'vue';
-import { default as axios } from 'axios';
-import ChatBubble from '@/Components/ChatComponents/ChatBubble.vue';
+<<script setup>
+    import ChatBubble from '@/Components/ChatComponents/ChatBubble.vue';
+    import axios from 'axios';
+    import ChatPinned from './ChatPinned.vue';
+    import { onMounted, ref } from 'vue';
+    import moment from 'moment';
+import { json } from 'body-parser';
+import { join } from 'lodash';
+const props = defineProps(['rows','statusTracker']);
+ 
+    const emits = defineEmits(['replay']);
+    const pinnedChats = ref([])
 
-const props = defineProps({
-    contactId: {
-        type: Number,
-        required: true
-    },
-    initialMessages: {
-        type: Array,
-        required: true
-    },
-    hasMoreMessages: {
-        type: Boolean,
-        required: true
-    },
-    initialNextPage: {
-        type: Number,
-        required: true
+    const hasDateChanged = (currentIndex) => {
+    if (!props.rows || currentIndex === 0 || !props.rows[currentIndex - 1]) return true;
+    const currentDate = moment(props.rows[currentIndex]?.[0]?.value?.created_at).format("MM/DD/YYYY");
+    const previousDate = moment(props.rows[currentIndex - 1]?.[0]?.value?.created_at).format("MM/DD/YYYY");
+    return currentDate !== previousDate;
+        };
+    const pinMessage = async (values) => {
+        await updateMessageStatus(values)
+        await getPinnedMessages(values.chat?.contact_id)
     }
-});
-
-const messages = ref(props.initialMessages);
-const loading = ref(false);
-const nextPage = ref(props.initialNextPage);
-const hasMore = ref(props.hasMoreMessages);
-
-const loadMoreMessages = async () => {
-    if (loading.value || !hasMore.value) return;
-    
-    loading.value = true;
-    try {
-        const response = await axios.get(`/chats/${props.contactId}/messages?page=${nextPage.value}`);
-        messages.value = [...response.data.messages, ...messages.value];
-        hasMore.value = response.data.hasMoreMessages;
-        nextPage.value = response.data.nextPage;
-    } catch (error) {
-        console.error('Error loading messages:', error);
-    } finally {
-        loading.value = false;
+    const getPinnedMessages = async (id) => {
+        const { data } = await axios.get(`/pinned/chats?contact_id=${id}`);
+        pinnedChats.value = data
     }
+    const getReplayMessage = (id) => {
+    if (!id || !props.rows) return null;
+    const row = props.rows.find((row) => row?.[0]?.value?.id === id);
+    return row ? row[0].value : null;
 };
-</script>
 
+    const updateMessageStatus = async (values) => {
+
+        const formData = new FormData();
+
+        formData.append('chat_id', values.chat.id);
+        formData.append('action', values.type);
+        try {
+            const response = await axios.post('/toggle/chats', formData);
+
+        } catch (error) {
+            // Handle the error
+            // console.error('Error:', error);
+        }
+    }
+    onMounted(async () => {
+        getPinnedMessages(props.rows[0][0]?.value?.contact_id)
+    });
+
+</script>
 <template>
-    <div class="py-4 md:py-4 relative px-6 md:px-10">
-        <div v-if="hasMore" 
-             class="text-center py-2">
-            <div v-if="loading" 
-                 class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Loading...
-            </div>
-            <button v-else
-                    @click="loadMoreMessages"
-                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150">
-                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-                Load More Messages
-            </button>
-        </div>
-        
-        <div v-for="(chat, index) in messages" 
-             :key="index" 
-             class="flex flex-grow flex-col"
-             :class="chat[0].type === 'ticket' ? 'justify-center' : 'justify-end'">
-            <ChatBubble 
-                v-if="chat[0].type === 'chat'" 
-                :content="chat[0].value" 
-                :type="chat[0].value.type"
-                :replyTo="chat[0].replyTo || null" />
-            <div v-if="chat[0].type === 'ticket'" class="py-2">
-                <div class="text-center font-light text-sm border-b border-t py-2 border-dashed border-black">
-                    <div>{{ chat[0].value.description }} </div>
-                    <div class="text-xs">{{ chat[0].value.created_at }}</div>
-                </div>
-            </div>
-            <div v-if="chat[0].type === 'notes'" class="py-2 bg-orange-100 my-2 rounded-lg p-2 w-[fit-content] ml-auto">
-                <div class="text-right font-light text-sm">
-                    <div>{{ chat[0].value.content }}</div>
-                    <div class="flex items-center justify-between mt-2 space-x-4">
-                        <!--<span v-if="props.type === 'outbound' && content.user" class="text-gray-500 text-xs text-right leading-none">Sent By: {{ content.user?.first_name + ' ' + content.user?.last_name }}</span>-->
-                        <p class="text-gray-500 text-xs text-right leading-none">{{ chat[0].value.created_at }}</p>
+    <div>
+        <Transition name="slide-down" mode="out-in">
+            <ChatPinned v-if="pinnedChats.length" :content="pinnedChats" />
+        </Transition>
+
+       
+        <div v-if="rows && rows.length > 0" class="py-4 md:py-4 relative px-6 md:px-10">
+            <div v-for="(chat, index) in rows" :key="index" class="flex flex-grow flex-col"
+                :class="chat[0]?.type === 'ticket' ? 'justify-center' : 'justify-end'">
+                <p v-if="hasDateChanged(index)" class="w-full text-center text-slate-700">
+                    {{ moment(chat[0]?.value?.created_at).format("DD-MM-YYYY") }}
+                </p>
+             
+                <ChatBubble v-if="chat[0]?.type === 'chat'"
+                    :pinned-messages="pinnedChats"
+                    :replay-message="getReplayMessage(chat[0]?.value?.old_message_id)" :status="statusTracker"
+                    :content="chat[0].value" :type="chat[0]?.value?.type"
+                    @replay="(value) => emits('replay', value)" @pin="pinMessage" @star="updateMessageStatus" />
+               
+                <div v-if="chat[0]?.type === 'notes'"
+                    class="py-2 bg-orange-100 my-2 rounded-lg p-2 w-[fit-content] ml-auto">
+                    <div class="text-right font-light text-sm">
+                        <div>{{ chat[0].value.content }}</div>
+                        <div class="flex items-center justify-between mt-2 space-x-4">
+                            <p class="text-gray-500 text-xs text-right leading-none">{{ chat[0]?.value?.created_at }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </template>
+
+<style>
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.slide-down-enter-from {
+  transform: translateY(-3px);
+  opacity: 0;
+}
+
+.slide-down-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.slide-down-leave-from {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.slide-down-leave-to {
+  transform: translateY(-3px);
+  opacity: 0;
+}
+
+</style>>

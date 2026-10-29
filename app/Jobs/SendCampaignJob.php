@@ -5,7 +5,6 @@ namespace App\Jobs;
 use Carbon\Carbon;
 use App\Models\Campaign;
 use App\Models\CampaignLog;
-use App\Models\CampaignLogRetry;
 use App\Models\Contact;
 use App\Models\Organization;
 use App\Models\Setting;
@@ -24,40 +23,30 @@ class SendCampaignJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, TemplateTrait, SerializesModels;
 
-    /**
-     * The number of times the job may be attempted.
-     *
-     * @var int
-     */
-    public $tries = 3;
-
-    /**
-     * The number of seconds the job can run before timing out.
-     *
-     * @var int
-     */
-    public $timeout = 300;
-
     private $organizationId;
     private $whatsappService;
 
-    public function __construct()
-    {
-        $this->onQueue('campaigns');
-    }
-
     public function handle()
     {
-        try {
-            /*$timezoneQuery = Setting::where('key', 'timezone')->first();
-            $timezone = $timezoneQuery ? $timezoneQuery->value : 'UTC';*/
+        Log::info('Starting SendCampaignJob execution');
 
+        try {
             $campaigns = Campaign::whereIn('status', ['scheduled', 'ongoing'])
-                ->with('organization') // Eager load the organization relationship
+                ->with('organization')
                 ->whereNull('deleted_at')
                 ->cursor();
 
+            Log::info('Fetched campaigns for processing', [
+                'campaign_count' => $campaigns->count()
+            ]);
+
             $campaigns->each(function ($campaign) {
+                Log::info('Processing campaign', [
+                    'campaign_id' => $campaign->id,
+                    'campaign_status' => $campaign->status,
+                    'organization_id' => $campaign->organization_id
+                ]);
+
                 $organization = $campaign->organization;
                 $timezone = 'UTC';
 
@@ -70,24 +59,38 @@ class SendCampaignJob implements ShouldQueue
                     }
                 }
 
+                Log::info('Using timezone for campaign', [
+                    'campaign_id' => $campaign->id,
+                    'timezone' => $timezone
+                ]);
+
                 $scheduledAt = Carbon::parse($campaign->scheduled_at, 'UTC')->timezone($timezone);
 
-                // Compare the scheduled_at time with the current time in the organization's timezone
                 if ($scheduledAt->lte(Carbon::now($timezone))) {
                     $this->processCampaign($campaign);
+                } else {
+                    Log::info('Campaign scheduled for future execution', [
+                        'campaign_id' => $campaign->id,
+                        'scheduled_at' => $scheduledAt->toIso8601String()
+                    ]);
                 }
             });
         } catch (\Exception $e) {
-            // Handle the exception, log it, or take other actions
-            Log::error('Error in campaign job: ' . $e->getMessage());
-
-            // Optionally, rethrow the exception if you want the job to be retried
+            Log::error('Error in campaign job execution', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw $e;
         }
     }
 
     protected function processCampaign(Campaign $campaign)
     {
+        Log::info('Processing campaign', [
+            'campaign_id' => $campaign->id,
+            'status' => $campaign->status
+        ]);
+
         if ($campaign->status === 'scheduled') {
             $this->processPendingCampaign($campaign);
         } elseif ($campaign->status === 'ongoing') {
@@ -97,44 +100,78 @@ class SendCampaignJob implements ShouldQueue
 
     protected function processPendingCampaign(Campaign $campaign)
     {
+        Log::info('Processing pending campaign', [
+            'campaign_id' => $campaign->id
+        ]);
+
         $contacts = $this->getContactsForCampaign($campaign);
 
-        if($this->createCampaignLogs($campaign, $contacts)){
-            if($this->updateCampaignStatus($campaign, 'ongoing')){
+        Log::info('Retrieved contacts for campaign', [
+            'campaign_id' => $campaign->id,
+            'contacts_count' => count($contacts)
+        ]);
+
+        if ($this->createCampaignLogs($campaign, $contacts)) {
+            Log::info('Successfully created campaign logs', [
+                'campaign_id' => $campaign->id
+            ]);
+
+            if ($this->updateCampaignStatus($campaign, 'ongoing')) {
+                Log::info('Updated campaign status to ongoing', [
+                    'campaign_id' => $campaign->id
+                ]);
+
                 $campaign = Campaign::find($campaign->id);
                 $this->processCampaign($campaign);
             }
+        } else {
+            Log::warning('Failed to create campaign logs', [
+                'campaign_id' => $campaign->id
+            ]);
         }
     }
 
     protected function getContactsForCampaign(Campaign $campaign)
     {
-        if (empty($campaign->contact_group_id) || $campaign->contact_group_id === '0') {
-            return Contact::where('organization_id', $campaign->organization_id)
-                ->whereNull('deleted_at')
-                ->get();
-        }
+        Log::info('Fetching contacts for campaign', [
+            'campaign_id' => $campaign->id,
+            'contact_group_id' => $campaign->contact_group_id
+        ]);
 
-        return Contact::whereHas('contactGroups', function ($query) use ($campaign) {
-            $query->where('contact_groups.id', $campaign->contact_group_id);
-        })->whereNull('deleted_at')->get();
+        $contacts = (is_null($campaign->contact_group_id) || empty($campaign->contact_group_id) || $campaign->contact_group_id === '0')
+            ? Contact::where('organization_id', $campaign->organization_id)->whereNull('deleted_at')->get()
+            : optional($campaign->contactGroup)->contacts ?? collect();
+
+        Log::info('Retrieved contacts', [
+            'campaign_id' => $campaign->id,
+            'contacts_count' => $contacts->count()
+        ]);
+
+        return $contacts;
     }
 
     protected function createCampaignLogs(Campaign $campaign, $contacts)
     {
+        Log::info('Creating campaign logs', [
+            'campaign_id' => $campaign->id,
+            'total_contacts' => $contacts->count()
+        ]);
+
         $campaignLogs = [];
         $contactIds = $contacts->pluck('id');
 
-        // Fetch existing logs
         $existingLogs = CampaignLog::where('campaign_id', $campaign->id)
             ->whereIn('contact_id', $contactIds)
             ->pluck('contact_id')
             ->toArray();
 
-        // Filter out contacts that already have logs
+        Log::info('Found existing campaign logs', [
+            'campaign_id' => $campaign->id,
+            'existing_logs_count' => count($existingLogs)
+        ]);
+
         $newContacts = $contactIds->diff($existingLogs);
 
-        // Prepare new campaign logs
         $campaignLogs = $newContacts->map(function ($contactId) use ($campaign) {
             return [
                 'campaign_id' => $campaign->id,
@@ -143,244 +180,228 @@ class SendCampaignJob implements ShouldQueue
             ];
         })->toArray();
 
-        // Insert new logs if any
         if (!empty($campaignLogs)) {
+            Log::info('Inserting new campaign logs', [
+                'campaign_id' => $campaign->id,
+                'new_logs_count' => count($campaignLogs)
+            ]);
             return CampaignLog::insert($campaignLogs);
         }
 
+        Log::info('No new campaign logs to create', [
+            'campaign_id' => $campaign->id
+        ]);
         return false;
     }
 
     protected function updateCampaignStatus(Campaign $campaign, $status)
     {
-        return Campaign::where('uuid', $campaign->uuid)->update(['status' => $status]);
+        Log::info('Updating campaign status', [
+            'campaign_id' => $campaign->id,
+            'old_status' => $campaign->status,
+            'new_status' => $status
+        ]);
+
+        $result = Campaign::where('uuid', $campaign->uuid)->update(['status' => $status]);
+
+        if ($result) {
+            Log::info('Successfully updated campaign status', [
+                'campaign_id' => $campaign->id,
+                'status' => $status
+            ]);
+        } else {
+            Log::warning('Failed to update campaign status', [
+                'campaign_id' => $campaign->id,
+                'status' => $status
+            ]);
+        }
+
+        return $result;
     }
 
     protected function sendOngoingCampaignMessages(Campaign $campaign)
     {
-        $this->processPendingOrRetryableLogs($campaign);
+        Log::info('Processing ongoing campaign messages', [
+            'campaign_id' => $campaign->id
+        ]);
 
-        // Check if there are no more pending campaign logs
-        if (!$this->hasPendingOrRetryableLogs($campaign)) {
+        $this->processPendingCampaignLogs($campaign);
+
+        if (!$this->hasPendingCampaignLogs($campaign)) {
+            Log::info('No pending logs found, marking campaign as completed', [
+                'campaign_id' => $campaign->id
+            ]);
             $this->updateCampaignStatus($campaign, 'completed');
         }
     }
 
-    protected function processPendingOrRetryableLogs(Campaign $campaign)
+    protected function processPendingCampaignLogs(Campaign $campaign)
     {
-        $campaign = Campaign::with('organization')->find($campaign->id);
-        $orgMetadata = json_decode($campaign->organization->metadata ?? '{}', true);
-        $retryEnabled = $orgMetadata['campaigns']['enable_resend'] ?? false;
-        $retryIntervals = $orgMetadata['campaigns']['resend_intervals'] ?? [];
-        $maxRetries = count($retryIntervals);
+        Log::info('Processing pending campaign logs', [
+            'campaign_id' => $campaign->id
+        ]);
 
-        // Process pending logs
         CampaignLog::with('campaign', 'contact')
             ->where('campaign_id', $campaign->id)
             ->where('status', '=', 'pending')
-            ->chunk(500, function ($pendingCampaignLogs) {
+            ->chunk(500, function ($pendingCampaignLogs) use ($campaign) {
+                Log::info('Processing chunk of pending campaign logs', [
+                    'campaign_id' => $campaign->id,
+                    'chunk_size' => count($pendingCampaignLogs)
+                ]);
+
                 foreach ($pendingCampaignLogs as $campaignLog) {
-                    // Skip if the log is already being processed or processed
                     if ($campaignLog->status === 'ongoing' || $campaignLog->status === 'success') {
+                        Log::info('Skipping already processed campaign log', [
+                            'campaign_log_id' => $campaignLog->id,
+                            'status' => $campaignLog->status
+                        ]);
                         continue;
                     }
                     $this->sendTemplateMessage($campaignLog);
                 }
             });
-
-        // If retry is enabled, process eligible failed logs
-        if ($retryEnabled && $maxRetries > 0) {
-            CampaignLog::with(['campaign', 'contact', 'retries'])
-                ->where('campaign_id', $campaign->id)
-                ->where('status', 'failed')
-                ->chunk(500, function ($logs) use ($retryIntervals, $maxRetries) {
-                    foreach ($logs as $log) {
-                        $retryCount = $log->retries->count();
-
-                        // Skip if max retries have been reached
-                        if ($retryCount >= $maxRetries) {
-                            continue;
-                        }
-
-                        $requiredDelay = $retryIntervals[$retryCount] ?? null;
-
-                        // Skip if there's a retry dispatch and it's not time yet
-                        $lastRetryLog = $log->retries()->latest()->first(); // Assuming the relationship is defined
-
-                        if ($lastRetryLog) {
-                            $nextEligibleTime = \Carbon\Carbon::parse($lastRetryLog->created_at)->addHours($requiredDelay);
-                            if (now()->lt($nextEligibleTime)) {
-                                continue; // Retry time not reached yet
-                            }
-                        }
-
-                        // If the last retry or dispatched time is valid, proceed to send
-                        $this->sendRetryLogTemplateMessage($log);
-                    }
-                });
-        }
     }
 
-    protected function hasPendingOrRetryableLogs(Campaign $campaign)
+    protected function hasPendingCampaignLogs(Campaign $campaign)
     {
-        $campaign = Campaign::with('organization')->find($campaign->id);
-        $orgMetadata = json_decode($campaign->organization->metadata ?? '{}', true);
-        $retryEnabled = $orgMetadata['campaigns']['enable_resend'] ?? false;
-        $retryIntervals = $orgMetadata['campaigns']['resend_intervals'] ?? [];
-        $maxRetries = count($retryIntervals);
-        
-        // Check for pending logs first
         $hasPending = CampaignLog::where('status', 'pending')
             ->where('campaign_id', $campaign->id)
             ->exists();
 
-        if ($hasPending) {
-            return true;
-        }
+        Log::info('Checked for pending campaign logs', [
+            'campaign_id' => $campaign->id,
+            'has_pending_logs' => $hasPending
+        ]);
 
-        // If retry is not enabled, return early
-        if (!$retryEnabled || empty($retryIntervals)) {
-            return false;
-        }
-
-        // Now check for retryable failed logs
-        $hasRetryable = CampaignLog::where('campaign_id', $campaign->id)
-            ->where('status', 'failed')
-            ->where(function ($query) use ($retryIntervals, $maxRetries) {
-                $query->whereExists(function ($sub) use ($retryIntervals, $maxRetries) {
-                    $sub->select(DB::raw(1))
-                        ->from('campaign_log_retries as clr')
-                        ->whereColumn('clr.campaign_log_id', 'campaign_logs.id')
-                        ->groupBy('clr.campaign_log_id')
-                        ->havingRaw('COUNT(*) < ?', [$maxRetries]);
-                });
-            })
-            ->exists();
-
-        return $hasRetryable;
+        return $hasPending;
     }
 
     protected function sendTemplateMessage(CampaignLog $campaignLog)
     {
-        DB::transaction(function() use ($campaignLog) {
-            //Update log to ongoing, prevents this message from being sent out again
+        DB::transaction(function () use ($campaignLog) {
+            Log::info('Starting template message send', [
+                'campaign_log_id' => $campaignLog->id,
+                'campaign_id' => $campaignLog->campaign_id,
+                'contact_id' => $campaignLog->contact_id
+            ]);
+
             $log = CampaignLog::where('id', $campaignLog->id)
-                              ->where('status', 'pending') // Make sure the log is still pending
-                              ->lockForUpdate()
-                              ->first();
-                   
-            if ($log) {  
-                if (!$campaignLog->contact) {
-                    $log->status = 'failed';
-                    $log->save();
-                    
-                    /*Log::error("Skipping message sending: Contact is either missing or deleted.", [
-                        'campaign_log_id' => $campaignLog->id,
-                        'contact_id' => $campaignLog->contact->id ?? null
-                    ]);*/
-                } else {   
-                    $campaign_user_id = Campaign::find($log->campaign_id)?->created_by;    
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->first();
+
+            if ($log) {
+                try {
                     $log->status = 'ongoing';
                     $log->save();
-            
-                    //Set Organization Id & initialize whatsapp service
+
                     $this->organizationId = $campaignLog->campaign->organization_id;
                     $this->initializeWhatsappService();
-            
-                    $template = $this->buildTemplateRequest($campaignLog->campaign_id, $campaignLog->contact);
-                    $responseObject = $this->whatsappService->sendTemplateMessage($campaignLog->contact->uuid, $template, $campaign_user_id, $campaignLog->campaign_id);
-                    //Log::info(json_encode($responseObject));
-                    $this->updateCampaignLogStatus($campaignLog, $responseObject);
-                }
-            }
-        });
-    }
 
-    protected function sendRetryLogTemplateMessage(CampaignLog $campaignLog)
-    {
-        DB::transaction(function() use ($campaignLog) {
-            //Update log to ongoing, prevents this message from being sent out again
-            $log = CampaignLog::where('id', $campaignLog->id)
-                              ->where('status', 'failed')
-                              ->lockForUpdate()
-                              ->first();
-                   
-            if ($log) {  
-                if (!$campaignLog->contact) {
-                    $log->status = 'failed';
-                    $log->save();
-                    
-                    /*Log::error("Skipping message sending: Contact is either missing or deleted.", [
+                    $template = $this->buildTemplateRequest($campaignLog->campaign_id, $campaignLog->contact);
+
+                    Log::info('Sending template message', [
                         'campaign_log_id' => $campaignLog->id,
-                        'contact_id' => $campaignLog->contact->id ?? null
-                    ]);*/
-                } else {   
-                    $campaign_user_id = Campaign::find($log->campaign_id)?->created_by;  
-                    $retryLog = new CampaignLogRetry();
-                    $retryLog->campaign_log_id = $campaignLog->id;
-                    $retryLog->status = 'ongoing';
-                    $retryLog->save();
-            
-                    //Set Organization Id & initialize whatsapp service
-                    $this->organizationId = $campaignLog->campaign->organization_id;
-                    $this->initializeWhatsappService();
-            
-                    $template = $this->buildTemplateRequest($campaignLog->campaign_id, $campaignLog->contact);
-                    $responseObject = $this->whatsappService->sendTemplateMessage($campaignLog->contact->uuid, $template, $campaign_user_id, $campaignLog->campaign_id);
-                    $successStatus = ($responseObject->success === true) ? 'success' : 'failed';
-                    //Log::info(json_encode($responseObject));
+                        'template' => $template,
+                        'contact_uuid' => $campaignLog->contact->uuid
+                    ]);
 
-                    $retryLog->chat_id = $responseObject->data->chat->id ?? null;
-                    $retryLog->status = $successStatus;
+                    $responseObject = $this->whatsappService->sendTemplateMessage(
+                        $campaignLog->contact->uuid,
+                        $template,
+                        $campaignLog->campaign_id
+                    );
 
-                    // Clean metadata
-                    unset($responseObject->success);
-                    if (property_exists($responseObject, 'data') && property_exists($responseObject->data, 'chat')) {
-                        unset($responseObject->data->chat);
-                    }
+                    $this->updateCampaignLogStatus($campaignLog, $responseObject);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send template message', [
+                        'campaign_log_id' => $campaignLog->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                        'organization_id' => $this->organizationId,
+                        'contact_uuid' => $campaignLog->contact->uuid ?? null
+                    ]);
 
-                    $retryLog->metadata = json_encode($responseObject);
-                    $retryLog->save();
+                    $log->status = 'failed';
+                    $log->metadata = json_encode([
+                        'error' => $e->getMessage(),
+                        'error_code' => $e->getCode(),
+                        'timestamp' => now()->toIso8601String()
+                    ]);
+                    $log->updated_at = now();
+                    $log->save();
 
-                    // Update the retry_count on the original campaign log
-                    $log = CampaignLog::find($campaignLog->id);
-                    $log->retry_count += 1;
-                    $log->status = $successStatus;
-                    $log->save(); 
-
-                    //If this is the last retry send contact to failed group
-                    $orgMetadata = json_decode($campaignLog->campaign->organization->metadata ?? '{}', true);
-                    $retryIntervals = $orgMetadata['campaigns']['resend_intervals'] ?? [];
-                    $maxRetries = count($retryIntervals);
-
-                    if ($log->status === 'failed' && $log->retry_count >= $maxRetries) {
-                        $this->addContactToFailedGroup($campaignLog);
-                    }
+                    throw $e;
                 }
+            } else {
+                Log::warning('Campaign log not found or not in pending status', [
+                    'campaign_log_id' => $campaignLog->id,
+                    'current_status' => $campaignLog->status
+                ]);
             }
         });
     }
 
     protected function updateCampaignLogStatus(CampaignLog $campaignLog, $responseObject)
     {
-        $log = CampaignLog::find($campaignLog->id);
+        Log::info('Updating campaign log status', [
+            'campaign_log_id' => $campaignLog->id
+        ]);
 
-        // Update campaign log status based on the response object
-        $log->chat_id = $responseObject->data->chat->id ?? null;
-        $log->status = ($responseObject->success === true) ? 'success' : 'failed';
-        unset($responseObject->success);
-        if (property_exists($responseObject, 'data') && property_exists($responseObject->data, 'chat')) {
-            unset($responseObject->data->chat);
+        $log = CampaignLog::find($campaignLog->id);
+        $isSuccess = ($responseObject->success === true);
+
+        $metadata = clone $responseObject;
+        if (isset($metadata->data) && is_object($metadata->data)) {
+            $metadata->data = clone $metadata->data;
         }
-        $log->metadata = json_encode($responseObject);
+        unset($metadata->success);
+        if (property_exists($metadata, 'data') && property_exists($metadata->data, 'chat')) {
+            unset($metadata->data->chat);
+        }
+
+        if (!$isSuccess) {
+            $errorDetails = [
+                'error_timestamp' => now()->toIso8601String(),
+                'error_details' => $responseObject->error ?? null,
+                'error_code' => $responseObject->error_code ?? null,
+                'http_status' => $responseObject->status ?? null,
+            ];
+            $metadata->error_details = $errorDetails;
+
+            Log::error('Template message send failed', [
+                'campaign_log_id' => $campaignLog->id,
+                'campaign_id' => $campaignLog->campaign_id,
+                'contact_id' => $campaignLog->contact_id,
+                'error_details' => $errorDetails,
+                'organization_id' => $this->organizationId,
+                'response' => $responseObject
+            ]);
+        } else {
+            Log::info('Template message sent successfully', [
+                'campaign_log_id' => $campaignLog->id,
+                'campaign_id' => $campaignLog->campaign_id,
+                'contact_id' => $campaignLog->contact_id,
+                'chat_id' => $responseObject->data->chat->id ?? null
+            ]);
+        }
+
+        $log->chat_id = $responseObject->data->chat->id ?? null;
+        $log->status = $isSuccess ? 'success' : 'failed';
+        $log->metadata = json_encode($metadata);
         $log->updated_at = now();
         $log->save();
     }
 
     private function initializeWhatsappService()
     {
-        $config = Organization::where('id', $this->organizationId)->first()->metadata;
-        $config = $config ? json_decode($config, true) : [];
+        Log::info('Initializing WhatsApp service', [
+            'organization_id' => $this->organizationId
+        ]);
+
+        $organization = Organization::where('id', $this->organizationId)->first();
+        $config = $organization->metadata ? json_decode($organization->metadata, true) : [];
 
         $accessToken = $config['whatsapp']['access_token'] ?? null;
         $apiVersion = 'v18.0';
@@ -388,33 +409,21 @@ class SendCampaignJob implements ShouldQueue
         $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
         $wabaId = $config['whatsapp']['waba_id'] ?? null;
 
-        $this->whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $this->organizationId);
-    }
-
-    protected function addContactToFailedGroup($campaignLog)
-    {
-        $campaignSettings = json_decode($campaignLog->campaign->organization->metadata, true)['campaigns'] ?? [];
-        $retryIntervals = $campaignSettings['resend_intervals'];
-
-        if (!empty($campaignSettings['move_failed_contacts_to_group'])) {
-            $groupUuid = $campaignSettings['failed_campaign_group'];
-            $failedGroupId = DB::table('contact_groups')->where('uuid', $groupUuid)->value('id');
-
-            // Check if the group exists in the contact_groups table by UUID
-            if (!$failedGroupId) {
-                Log::warning('Failed to move contact: Group with UUID ' . $groupUuid . ' does not exist.');
-            }
-
-            // Remove all groups for the contact
-            DB::table('contact_contact_group')
-                ->where('contact_id', $campaignLog->contact_id)
-                ->delete();
-
-             // Add contact to the failed group
-             DB::table('contact_contact_group')->insert([
-                'contact_id' => $campaignLog->contact_id,
-                'contact_group_id' => $failedGroupId, // Use the group ID here
+        if (!$accessToken || !$appId || !$phoneNumberId || !$wabaId) {
+            Log::warning('Missing WhatsApp configuration', [
+                'organization_id' => $this->organizationId,
+                'has_access_token' => (bool)$accessToken,
+                'has_app_id' => (bool)$appId,
+                'has_phone_number_id' => (bool)$phoneNumberId,
+                'has_waba_id' => (bool)$wabaId
             ]);
         }
+
+        $this->whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $this->organizationId);
+
+        Log::info('WhatsApp service initialized', [
+            'organization_id' => $this->organizationId,
+            'api_version' => $apiVersion
+        ]);
     }
 }

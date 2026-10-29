@@ -17,9 +17,11 @@ use App\Models\SubscriptionPlan;
 use App\Models\Team;
 use App\Models\Template;
 use App\Models\User;
+use App\Services\SubscriptionService;
 use DB;
 use Str;
 use Propaganistas\LaravelPhone\PhoneNumber;
+use Illuminate\Validation\ValidationException;
 
 class OrganizationService
 {
@@ -129,7 +131,7 @@ class OrganizationService
             Subscription::create([
                 'organization_id' => $organization->id,
                 'status' => $has_trial ? 'trial' : 'active',
-                'plan_id' => $plan ? $plan->id : NULL,
+                'plan_id' => $plan->id,
                 'start_date' => now(),
                 'valid_until' => $has_trial ? date('Y-m-d H:i:s', strtotime('+' . $config->value . ' days')) : now(),
             ]);
@@ -181,6 +183,90 @@ class OrganizationService
         }
 
         return $organization;
+    }
+
+    public function recordCashPayment($request, $uuid)
+    {
+        return DB::transaction(function () use ($request, $uuid) {
+            $paymentDetails = $this->getCashPaymentDetails($uuid, $request->input('plan'));
+            $organization = $paymentDetails['organization'];
+            $plan = $paymentDetails['plan'];
+            $billingDetails = $paymentDetails['billingDetails'];
+            $amount = $paymentDetails['amount'];
+
+            if ($amount <= 0) {
+                throw ValidationException::withMessages([
+                    'plan' => __('There is no payment due for this plan; no cash payment was recorded.'),
+                ]);
+            }
+
+            $adminId = auth('admin')->id();
+            $invoice = SubscriptionService::createBillingInvoice(
+                $billingDetails,
+                $organization->id,
+                $plan->id,
+                $adminId
+            );
+
+            $reference = trim((string) $request->input('reference', ''));
+            $payment = BillingPayment::create([
+                'organization_id' => $organization->id,
+                'processor' => 'cash',
+                'details' => $reference !== '' ? $reference : 'Manual cash payment',
+                'amount' => $amount,
+            ]);
+
+            return BillingTransaction::create([
+                'organization_id' => $organization->id,
+                'entity_type' => 'payment',
+                'entity_id' => $payment->id,
+                'description' => $reference !== ''
+                    ? 'Cash payment - ' . $reference
+                    : 'Cash payment for invoice #' . $invoice->id,
+                'amount' => $amount,
+                'created_by' => $adminId,
+            ]);
+        });
+    }
+
+    public function getCashPaymentQuote($uuid, $planUuid)
+    {
+        return $this->getCashPaymentDetails($uuid, $planUuid)['amount'];
+    }
+
+    private function getCashPaymentDetails($uuid, $planUuid)
+    {
+        $organization = Organization::where('uuid', $uuid)->firstOrFail();
+        $subscription = Subscription::where('organization_id', $organization->id)->first();
+
+        if (!$subscription) {
+            throw ValidationException::withMessages([
+                'plan' => __('This organization does not have a subscription to activate.'),
+            ]);
+        }
+
+        $plan = SubscriptionPlan::where('uuid', $planUuid)
+            ->where('status', 'active')
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$plan) {
+            throw ValidationException::withMessages([
+                'plan' => __('Select an active subscription plan.'),
+            ]);
+        }
+
+        $billingDetails = SubscriptionService::calculateSubscriptionBillingDetails(
+            $organization->id,
+            $plan->id
+        );
+
+        return [
+            'organization' => $organization,
+            'plan' => $plan,
+            'billingDetails' => $billingDetails,
+            'amount' => (float) str_replace(',', '', $billingDetails['amountDue']),
+        ];
     }
 
     public function storeTransaction($request, $uuid){

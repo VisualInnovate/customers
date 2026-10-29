@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <div class="md:bg-inherit bg-white md:flex md:flex-grow capitalize">
-            <div class="md:w-[30%] flex-col h-full bg-white border-r border-l md:flex" :class="$page.url === '/contacts/add' || contact ? 'hidden' : ''">
+            <div  class=" flex-col h-full bg-white border-r border-l md:flex transition-all" :class="[$page.url === '/contacts/add' || contact ? 'hidden' : '' , contact && !editContact ? 'md:w-[60%]  lg:w-[70%]' : '  md:w-[40%] lg:w-[50%]' ]  ">
                 <div class="px-4 pt-4">
                     <div class="flex justify-between mt-2">
                         <div class="flex space-x-1 text-xl">
@@ -17,19 +17,19 @@
                 </div>
                 <ContactTable :rows="props.rows" :filters="props.filters" :type="'contact'" @callback="handleContact"/>
             </div>
-            <div class="md:w-[70%] bg-cover md:h-[100vh] md:overflow-y-hidden">
+            <div :class="contact && !editContact ? 'md:w-[40%] lg:w-[30%]' : '  md:w-[60%] lg:w-[50%]'" class="transition-all bg-cover md:h-[100vh] md:overflow-y-hidden">
                 <div v-if="contact">
                     <ContactInfo v-if="!editContact" class="pt-20" :contact="contact" :fields="props.fields" :locationSettings="locationSettings"/>
-                    <ContactForm v-else :contactGroups="props.contactGroups" :contact="props.contact" :fields="props.fields" :locationSettings="locationSettings" />
+                    <ContactForm v-else :contactGroups="props.contactGroups" :contact="props.contact" :fields="props.fields" :locationSettings="locationSettings" :countries="props.countries"/>
                 </div>
                 <div v-else>
                     <div v-if="$page.url === '/contacts/add'">
-                        <ContactForm :contactGroups="props.contactGroups" :contact="props.contact" :fields="props.fields" :locationSettings="locationSettings" />
+                        <ContactForm :contactGroups="props.contactGroups" :contact="props.contact" :fields="props.fields" :locationSettings="locationSettings" :countries="props.countries"/>
                     </div>
                     <div v-else>
-                        <div class="md:flex justify-center pt-20 hidden">
-                            <div class="border pt-20 py-10 w-[30em] rounded-xl bg-white">
-                                <h2 class="text-center text-2xl text-slate-500 mb-6">{{ $t('Select contact') }}</h2>
+                        <div class="md:flex px-2 justify-center pt-20 hidden">
+                            <div class="border  w-full py-10 px-5  rounded-xl bg-white">
+                                <h2 class="text-center text-xl text-slate-500 mb-6">{{ $t('Select contact') }}</h2>
                                 <div class="flex justify-center">
                                     <div class="border-r border-slate-500 h-10"></div>
                                 </div>
@@ -38,8 +38,8 @@
                                     <div class="border-r border-slate-500 h-10"></div>
                                 </div>
                                 <div class="flex justify-center space-x-4 mt-6">
-                                    <Link href="/contacts/add" class="bg-primary rounded-lg text-sm text-white p-2 px-8 text-center">{{ $t('Add contact') }}</Link>
-                                    <button @click="isOpenModal = true" class="bg-primary rounded-lg text-sm text-white p-2 px-8 text-center">{{ $t('Bulk upload') }}</button>
+                                    <Link href="/contacts/add" class="bg-primary rounded-lg text-xs text-white p-2 px-4 text-center">{{ $t('Add contact') }}</Link>
+                                    <button @click="isOpenModal = true" class="bg-primary rounded-lg text-xs text-white p-2 px-4 text-center">{{ $t('Bulk upload') }}</button>
                                 </div>
                             </div>
                         </div>
@@ -61,7 +61,7 @@
     import ContactTable from '@/Components/Tables/ContactTable.vue';
     import { router } from '@inertiajs/vue3';
 
-    const props = defineProps({ rows: Object, filters: Object, rowCount: Number, contactGroups: Object, contact: Object, editContact: Boolean, fields: Object, locationSettings: String, flash: Object });
+    const props = defineProps({ rows: Object, filters: Object, rowCount: Number, contactGroups: Object, contact: Object, editContact: Boolean, fields: Object, locationSettings: String, flash: Object, countries: Array });
     const isOpenModal = ref(false);
 
     const handleContact = (value) => {
@@ -69,5 +69,5 @@
             method: 'get',
             data: value,
         })
-    }
+    } 
 </script>

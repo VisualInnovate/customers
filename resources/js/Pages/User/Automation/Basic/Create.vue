@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div>
-                    <Link href="/automation/basic" class="flex items-center space-x-4 rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    <Link href="/automation/basic" class="flex items-center space-x-4 rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M5.841 5.28a.75.75 0 0 0-1.06-1.06L1.53 7.47L1 8l.53.53l3.25 3.25a.75.75 0 0 0 1.061-1.06l-1.97-1.97H24.25a.75.75 0 0 0 0-1.5H3.871l1.97-1.97Z" clip-rule="evenodd"/></svg>
                         {{ $t('Back') }}
                     </Link>
@@ -84,31 +84,10 @@
                                     </div>
                                     <div v-if="form.errors.response" class="form-error text-[#b91c1c] text-xs">{{ form.errors.response }}</div>
                                 </div>
-                                <div class="flex items-center">
-                                    <button type="button" @click="isModalOpen = true" class="bg-slate-100 px-2 py-1 rounded-md text-sm flex items-center gap-x-1 shadow-sm">
-                                        Add Variable
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 15L12 18.75L15.75 15m-7.5-6L12 5.25L15.75 9"/></svg>
-                                    </button>
-                                    <div class="ml-auto" />
-                                    <button type="button" @click="format('bold')" class="hover:bg-slate-100 rounded p-1 ml-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3h8c1.06 0 2.078.474 2.828 1.318C16.578 5.162 17 6.307 17 7.5c0 1.193-.421 2.338-1.172 3.182C15.078 11.526 14.061 12 13 12H5zm0 9h10.039a4.44 4.44 0 0 1 3.154 1.318A4.52 4.52 0 0 1 19.5 16.5a4.52 4.52 0 0 1-1.307 3.182A4.442 4.442 0 0 1 15.038 21H5z"/></svg>
-                                    </button>
-                                    <button type="button" @click="format('italic')" class="hover:bg-slate-100 rounded p-1 ml-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4.75a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-3.514l-5.828 13h3.342a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5h3.514l5.828-13H20.75a.75.75 0 0 1-.75-.75Z"/></svg>
-                                    </button>
-                                    <button type="button" @click="format('strike-through')" class="hover:bg-slate-100 rounded p-1 ml-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="m16.533 12.5l.054.043c.93.75 1.538 1.77 1.538 3.066a4.13 4.13 0 0 1-1.479 3.177c-1.058.904-2.679 1.464-4.974 1.464c-2.35 0-4.252-.837-5.318-1.865a.75.75 0 1 1 1.042-1.08c.747.722 2.258 1.445 4.276 1.445c2.065 0 3.296-.504 3.999-1.105a2.63 2.63 0 0 0 .954-2.036c0-.764-.337-1.38-.979-1.898c-.649-.523-1.598-.931-2.76-1.211H3.75a.75.75 0 0 1 0-1.5h26.5a.75.75 0 0 1 0 1.5ZM12.36 5C9.37 5 8.105 6.613 8.105 7.848c0 .411.072.744.193 1.02a.75.75 0 0 1-1.373.603a3.988 3.988 0 0 1-.32-1.623c0-2.363 2.271-4.348 5.755-4.348c1.931 0 3.722.794 4.814 1.5a.75.75 0 1 1-.814 1.26c-.94-.607-2.448-1.26-4-1.26Z"/></svg>
-                                    </button>
-                                    <button type="button" @click="format('monospace')" class="hover:bg-slate-100 rounded p-1 ml-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.5 6L10 18.5m-3.5-10L3 12l3.5 3.5m11-7L21 12l-3.5 3.5"/></svg>
-                                    </button>
-                                    <div class="relative ml-3">
-                                        <button type="button" @click="toggleEmojiPicker">😀</button>
-                                        <div v-if="emojiPicker" class="absolute right-0 bottom-full" ref="emojiPickerRef">
-                                            <EmojiPicker :native="true" @select="addEmoji" />
-                                        </div>
-                                    </div>
-                                </div>
+                                <button type="button" @click="isModalOpen = true" class="bg-slate-100 px-2 py-1 rounded-md text-sm flex items-center gap-x-1 shadow-sm">
+                                    Add Variable
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 15L12 18.75L15.75 15m-7.5-6L12 5.25L15.75 9"/></svg>
+                                </button>
                             </div>
                             <button type="submit" class="float-right flex items-center space-x-4 rounded-md bg-black px-3 py-2 text-sm text-white shadow-sm hover:bg-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                                 {{ $t('Save') }}
@@ -190,14 +169,12 @@
 <script setup>
     import AppLayout from '../../Layout/App.vue';
     import { Link, useForm } from "@inertiajs/vue3";
-    import { ref, onMounted, onBeforeUnmount } from 'vue';
+    import { ref } from 'vue';
     import { trans } from 'laravel-vue-i18n';
     import FormInput from '@/Components/FormInput.vue';
     import FormSelect from '@/Components/FormSelect.vue';
     import FormTextArea from '@/Components/FormTextArea.vue';
     import Modal from '@/Components/Modal.vue';
-    import EmojiPicker from 'vue3-emoji-picker';
-    import 'vue3-emoji-picker/css';
 
     const props = defineProps(['placeholders']);
 
@@ -205,25 +182,14 @@
 
     const textareaRef = ref(null);
 
-    const emojiPicker = ref(false);
-    const emojiPickerRef = ref(null);
-
     const addToTextArea = (textToAdd) => {
         const textarea = textareaRef.value;
-        const currentValue = textarea.value || '';
-        const start = textarea.selectionStart || 0;
-        const end = textarea.selectionEnd || 0;
+        if (textarea) {
+            const startPosition = textarea.selectionStart;
+            const endPosition = textarea.selectionEnd;
 
-        const newText = `${currentValue.substring(0, start)}${textToAdd}${currentValue.substring(end)}`;
-
-        textarea.value = newText;
-        form.response = newText;
-
-        // Focus the textarea and place the cursor at selectionEnd
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + textToAdd.length, start + textToAdd.length);
-        }, 0);
+            textarea.value = `${textarea.value.substring(0, startPosition)}${textToAdd}${textarea.value.substring(endPosition)}`;
+        }
 
         isModalOpen.value = false;
     };
@@ -280,101 +246,4 @@
             onSuccess: () => form.reset(),
         })
     }
-
-    const format = (type) => {
-    const textarea = textareaRef.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = form.response.slice(start, end);
-    let newText = '';
-
-    if (type == 'bold') {
-        newText =
-        form.response.slice(0, start) +
-        '*' +
-        selectedText +
-        '*' +
-        form.response.slice(end);
-    } else if (type == 'italic') {
-        newText =
-        form.response.slice(0, start) +
-        '_' +
-        selectedText +
-        '_' +
-        form.response.slice(end);
-    } else if (type == 'strike-through') {
-        newText =
-        form.response.slice(0, start) +
-        '~' +
-        selectedText +
-        '~' +
-        form.response.slice(end);
-    } else if (type == 'monospace') {
-        newText =
-        form.response.slice(0, start) +
-        '```' +
-        selectedText +
-        '```' +
-        form.response.slice(end);
-    }
-
-    textarea.value = newText;
-
-    setTimeout(() => {
-        if (type == 'monospace') {
-        textarea.setSelectionRange(start + 3, end + 3);
-        } else {
-        textarea.setSelectionRange(start + 1, end + 1);
-        }
-        textarea.focus();
-    }, 0);
-    };
-
-    const toggleEmojiPicker = (e) => {
-        e.stopPropagation();
-        emojiPicker.value = !emojiPicker.value;
-    };
-
-    const closeEmojiPicker = () => {
-        emojiPicker.value = false;
-    };
-
-    const addEmoji = (emoji) => {
-        const textarea = textareaRef.value;
-        const currentValue = textarea.value || '';
-        const start = textarea.selectionStart || 0;
-        const end = textarea.selectionEnd || 0;
-
-        const newText =
-            currentValue.substring(0, start) +
-            emoji.i +
-            currentValue.substring(end);
-
-        textarea.value = newText;
-        form.response = newText;
-
-        // Focus the textarea and place the cursor at selectionEnd
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + emoji.i.length, start + emoji.i.length);
-        }, 0);
-    };
-
-    const handleClickOutside = (event) => {
-    if (
-        emojiPickerRef.value &&
-        !emojiPickerRef.value.contains(event.target) &&
-        !textareaRef.value.contains(event.target)
-    ) {
-        closeEmojiPicker();
-    }
-    };
-
-    onMounted(() => {
-        document.addEventListener('click', handleClickOutside);
-    });
-
-    onBeforeUnmount(() => {
-        document.removeEventListener('click', handleClickOutside);
-    });
 </script>

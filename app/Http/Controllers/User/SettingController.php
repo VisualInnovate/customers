@@ -2,23 +2,17 @@
 
 namespace App\Http\Controllers\User;
 
-use App\Models\Call;
 use DB;
 use App\Http\Controllers\Controller as BaseController;
 use App\Http\Requests\StoreWhatsappSettings;
-use App\Helpers\CustomHelper;
-use App\Http\Requests\StoreWhatsappProfile;
 use App\Models\Addon;
-use App\Models\Contact;
 use App\Models\Organization;
 use App\Models\Setting;
 use App\Models\Template;
 use App\Services\ContactFieldService;
 use App\Services\WhatsappService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Validator;
@@ -32,18 +26,25 @@ class SettingController extends BaseController
 
     public function index(Request $request, $display = null){
         if ($request->isMethod('get')) {
-            $organizationId = session()->get('current_organization');
             $data['title'] = __('Settings');
-            $data['settings'] = Organization::where('id', $organizationId)->first();
+            $data['settings'] = Organization::where('id', session()->get('current_organization'))->first();
             $data['timezones'] = config('formats.timezones');
             $data['countries'] = config('formats.countries');
-            $data['sounds'] = config('sounds');
+            $data['sounds'] = $this->getSounds();
             $data['modules'] = Addon::get();
-            $contactModel = new Contact;
-            $data['contactGroups'] = $contactModel->getAllContactGroups($organizationId);
 
             return Inertia::render('User/Settings/General', $data);
         }
+    }
+
+    private function getSounds() {
+        $soundFiles = File::files(public_path('sounds'));
+        return array_map(function ($file) {
+            return [
+                'value' => asset('sounds/' . $file->getFilename()),
+                'label' => ucfirst(str_replace(['-', '_', '.wav', '.mp3'], [' ', ' ', '', ''], $file->getFilename())),
+            ];
+        }, $soundFiles);
     }
 
     public function mobileView(Request $request){
@@ -53,12 +54,9 @@ class SettingController extends BaseController
     }
 
     public function viewGeneralSettings(Request $request){
-        $contactModel = new Contact;
-        $organizationId = session()->get('current_organization');
         $data['title'] = __('Settings');
         $data['settings'] = Organization::where('id', session()->get('current_organization'))->first();
         $data['modules'] = Addon::get();
-        $data['contactGroups'] = $contactModel->getAllContactGroups($organizationId);
         
         return Inertia::render('User/Settings/General', $data);
     }
@@ -68,7 +66,7 @@ class SettingController extends BaseController
             ->pluck('value', 'key');
 
         $data = [
-            'embeddedSignupActive' => CustomHelper::isModuleEnabled('Embedded Signup'),
+            'embeddedSignupActive' => $settings->get('is_embedded_signup_active', 0),
             'graphAPIVersion' => config('graph.api_version'),
             'appId' => $settings->get('whatsapp_client_id', null),
             'configId' => $settings->get('whatsapp_config_id', null),
@@ -94,10 +92,6 @@ class SettingController extends BaseController
     }
 
     public function updateToken(Request $request) {
-        if ($response = $this->abortIfDemo()) {
-            return $response;
-        }
-        
         $organizationId = session()->get('current_organization');
         $config = Organization::findOrFail($organizationId)->metadata;
         $config = $config ? json_decode($config, true) : [];
@@ -230,24 +224,20 @@ class SettingController extends BaseController
         }
     }
 
-    public function whatsappBusinessProfileUpdate(StoreWhatsappProfile $request){
-        if ($response = $this->abortIfDemo()) {
-            return $response;
-        }
-
+    public function whatsappBusinessProfileUpdate(Request $request){
         $organizationId = session()->get('current_organization');
         $config = Organization::where('id', $organizationId)->first()->metadata;
         $config = $config ? json_decode($config, true) : [];
 
         if(isset($config['whatsapp'])){
             $accessToken = $config['whatsapp']['access_token'] ?? null;
-            $apiVersion = config('graph.api_version');
+            $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
             $appId = $config['whatsapp']['app_id'] ?? null;
             $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
             $wabaId = $config['whatsapp']['waba_id'] ?? null;
 
             $whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $organizationId);
-            
+
             $response = $whatsappService->updateBusinessProfile($request);
 
             if($response->success === true){
@@ -276,80 +266,72 @@ class SettingController extends BaseController
     }
 
     public function deleteWhatsappIntegration(Request $request){
-        if ($response = $this->abortIfDemo()) {
-            return $response;
-        }
+        if(app()->environment() == 'demo'){
+            return back()->with(
+                'status', [
+                    'type' => 'error', 
+                    'message' => __('You are not allowed to this in demo!')
+                ]
+            );
+        } else {
+            $embeddedSignupActive = Setting::where('key', 'is_embedded_signup_active')->value('value');
+            $organizationId = session()->get('current_organization');
+            $organizationConfig = Organization::where('id', $organizationId)->first();
+            $config = $organizationConfig->metadata ? json_decode($organizationConfig->metadata, true) : [];
 
-        $embeddedSignupActive = Setting::where('key', 'is_embedded_signup_active')->value('value');
-        $organizationId = session()->get('current_organization');
-        $organizationConfig = Organization::where('id', $organizationId)->first();
-        $config = $organizationConfig->metadata ? json_decode($organizationConfig->metadata, true) : [];
+            if(isset($config['whatsapp'])){
+                if($embeddedSignupActive == 1){
+                    //Unsubscribe webhook
+                    $organizationId = session()->get('current_organization');
+                    $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
 
-        if(isset($config['whatsapp'])){
-            if($embeddedSignupActive == 1){
-                //Unsubscribe webhook
-                $organizationId = session()->get('current_organization');
-                $apiVersion = config('graph.api_version');
+                    $accessToken = $config['whatsapp']['access_token'] ?? null;
+                    $appId = $config['whatsapp']['app_id'] ?? null;
+                    $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
+                    $wabaId = $config['whatsapp']['waba_id'] ?? null;
+                
+                    $whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $organizationId);
+                    $unsubscribe = $whatsappService->unSubscribeToWaba();
+                }
+                
+                //Delete whatsapp settings
+                if (isset($config['whatsapp'])) {
+                    unset($config['whatsapp']);
+                }
 
-                $accessToken = $config['whatsapp']['access_token'] ?? null;
-                $appId = $config['whatsapp']['app_id'] ?? null;
-                $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
-                $wabaId = $config['whatsapp']['waba_id'] ?? null;
-            
-                $whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $organizationId);
-                $unsubscribe = $whatsappService->unSubscribeToWaba();
-            }
-            
-            //Delete whatsapp settings
-            if (isset($config['whatsapp'])) {
-                unset($config['whatsapp']);
-            }
+                $updatedMetadataJson = json_encode($config);
+                $organizationConfig->metadata = $updatedMetadataJson;
+                $organizationConfig->save();
 
-            $updatedMetadataJson = json_encode($config);
-            $organizationConfig->metadata = $updatedMetadataJson;
-            $organizationConfig->save();
+                //Delete templates
+                $templates = Template::where('organization_id', $organizationId)->get();
+                foreach ($templates as $template) {
+                    $template->deleted_at = now();
+                    $template->save();
+                }
 
-            //Delete templates
-            $templates = Template::where('organization_id', $organizationId)->get();
-            foreach ($templates as $template) {
-                $template->deleted_at = now();
-                $template->save();
+                return back()->with(
+                    'status', [
+                        'type' => 'success', 
+                        'message' => __('Your integration has been removed successfully!')
+                    ]
+                );
             }
 
             return back()->with(
                 'status', [
-                    'type' => 'success', 
-                    'message' => __('Your integration has been removed successfully!')
+                    'type' => 'error', 
+                    'message' => __('Setup your whatsapp integration first!')
                 ]
             );
-        }
-
-        return back()->with(
-            'status', [
-                'type' => 'error', 
-                'message' => __('Setup your whatsapp integration first!')
-            ]
-        );
+    }
     }
 
-    private function saveWhatsappSettings($accessToken, $appId, $phoneNumberId, $wabaId, $subscribeToWebhook = false, $embeddedSignup = false, $business_app_onboarding = false) {
+    private function saveWhatsappSettings($accessToken, $appId, $phoneNumberId, $wabaId, $subscribeToWebhook = false) {
         $organizationId = session()->get('current_organization');
-        $apiVersion = config('graph.api_version');
+        $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
     
         $whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $organizationId);
-
-        if($subscribeToWebhook) {
-            //Subscribe to WABA webhook
-            $subscribeResponse = $whatsappService->subscribeToWaba();
-            if(!$subscribeResponse->success){
-                return back()->with(
-                    'status', [
-                        'type' => 'error',
-                        'message' => $subscribeResponse->data->error->message
-                    ]
-                );
-            }
-        }
 
         $phoneNumberResponse = $whatsappService->getPhoneNumberId($accessToken, $wabaId);
         
@@ -372,12 +354,6 @@ class SettingController extends BaseController
                     'message' => $phoneNumberStatusResponse->data->error->message
                 ]
             );
-        }
-
-        $enableCallingResponse = $whatsappService->enableCalling();
-
-        if($enableCallingResponse->failed()){
-            Log::error('Failed to enable calling: ', $enableCallingResponse->json());
         }
 
         //Get Account Review Status
@@ -407,7 +383,7 @@ class SettingController extends BaseController
         $organizationConfig = Organization::where('id', $organizationId)->first();
         
         $metadataArray = $organizationConfig->metadata ? json_decode($organizationConfig->metadata, true) : [];
-        $metadataArray['whatsapp']['is_embedded_signup'] = $embeddedSignup ?? false;
+        $metadataArray['whatsapp']['is_embedded_signup'] = $metadataArray['whatsapp']['is_embedded_signup'] ?? 0;
         $metadataArray['whatsapp']['access_token'] = $accessToken;
         $metadataArray['whatsapp']['app_id'] = $appId;
         $metadataArray['whatsapp']['waba_id'] = $wabaId;
@@ -428,7 +404,6 @@ class SettingController extends BaseController
         $metadataArray['whatsapp']['business_profile']['description'] = $businessProfileResponse->data->description ?? NULL;
         $metadataArray['whatsapp']['business_profile']['industry'] = $businessProfileResponse->data->vertical ?? NULL;
         $metadataArray['whatsapp']['business_profile']['email'] = $businessProfileResponse->data->email ?? NULL;
-        $metadataArray['whatsapp']['is_business_app_onboarding'] = $business_app_onboarding;
 
         $updatedMetadataJson = json_encode($metadataArray);
         $organizationConfig->metadata = $updatedMetadataJson;
@@ -450,214 +425,5 @@ class SettingController extends BaseController
                 ]
             );
         }
-    }
-
-    public function submitEmbeddedSignUp(Request $request)
-    {
-        $code = $request->input('token');
-        $waba_id = $request->input('waba_id');
-        $business_id = $request->input('business_id');
-        $phone_number_id = $request->input('phone_number_id');
-        $business_app_onboarding = $request->input('business_app_onboarding') ?? false;
-        $appId = Setting::where('key', 'whatsapp_client_id')->value('value');
-        $appSecret = Setting::where('key', 'whatsapp_client_secret')->value('value');
-        $apiVersion = config('graph.api_version');
-
-        // Exchange code for business token
-        $tokenResponse = Http::get("https://graph.facebook.com/{$apiVersion}/oauth/access_token", [
-            'client_id'     => $appId,
-            'client_secret' => $appSecret,
-            'code'          => $code,
-        ]);
-        if ($tokenResponse->failed()) {
-            throw new \Exception("Token exchange failed: " . $tokenResponse->body());
-        }
-
-        $businessToken = $tokenResponse->json()['access_token'];
-
-        if(!$business_app_onboarding) { // only if the user is not using the business app onboarding
-            $registerResponse = Http::withToken($businessToken)
-                ->post("https://graph.facebook.com/{$apiVersion}/{$phone_number_id}/register", [
-                    'messaging_product' => 'whatsapp',
-                    'pin' => '123456' // Optional: only if required by account
-                ]);
-
-            if ($registerResponse->failed()) {
-                throw new \Exception("Phone number registration failed: " . $registerResponse->body());
-            }
-        } else {
-            $phone_number_id = Http::withToken($businessToken)
-                ->get("https://graph.facebook.com/{$apiVersion}/{$waba_id}/phone_numbers")
-                ->json()['data'][0]['id'] ?? null;
-        }
-
-        $redirect =  $this->saveWhatsappSettings(
-            $businessToken,
-            $appId,
-            $phone_number_id,
-            $waba_id,
-            true, // Set webhook subscription
-            true, // Set embedded signup
-            $business_app_onboarding
-        );
-
-        if($business_app_onboarding) {
-          $syncContactsResponse = Http::withToken($businessToken)  // Initiate contacts synchronization
-                ->withHeader('Content-Type', 'application/json')
-                ->post("https://graph.facebook.com/$apiVersion/$phone_number_id/smb_app_data", [
-                    "messaging_product" => "whatsapp",
-                    "sync_type" => "smb_app_state_sync"
-                ]);
-          if($syncContactsResponse->failed()) {
-              Log::error('Failed to sync contacts: ' . $syncContactsResponse->body());
-          } else {
-              Log::info('Contacts synchronization initiated successfully with response: ' . $syncContactsResponse->body());
-          }
-
-          $syncChatHistoryResponse = Http::withToken($businessToken)  // Initiate contacts synchronization
-              ->withHeader('Content-Type', 'application/json')
-                  ->post("https://graph.facebook.com/$apiVersion/$phone_number_id/smb_app_data", [
-                      "messaging_product" => "whatsapp",
-                      "sync_type" => "history"
-                  ]);
-
-            if($syncChatHistoryResponse->failed()) {
-                Log::error('Failed to sync chat history: ' . $syncChatHistoryResponse->body());
-            } else {
-                Log::info('Chat history synchronization initiated successfully with response: ' . $syncChatHistoryResponse->body());
-            }
-        }
-        return $redirect;
-    }
-    
-    protected function abortIfDemo(){
-        $organizationId = session()->get('current_organization');
-
-        if (app()->environment('demo') && $organizationId == 1) {
-            return back()->with(
-                'status', [
-                    'type' => 'error', 
-                    'message' => __('You cannot perform this action using the demo account. To test this feature, please create your own account.')
-                ]
-            );
-        }
-
-        return null;
-    }
-
-    public function acceptCall(Request $request)
-    {
-        $request->validate([
-            'call_id' => 'required|string|exists:calls,call_id',
-            'sdp' => 'required'
-        ]);
-
-
-        $whatsapp_service = whatsapp_service();
-        if(!$whatsapp_service instanceof WhatsappService) {
-            return back()->with([
-                'status' => [
-                    'type' => 'error',
-                    'message' => __('WhatsApp service not configured')
-                ]
-            ]);
-        }
-
-        return DB::transaction(function () use ($request, $whatsapp_service) {
-            $call = Call::where('call_id', $request->call_id)->whereNull('session_id')->lockForUpdate()->first();
-            if(!$call) {
-                return back()->with([
-                    'status' => [
-                        'type' => 'error',
-                        'message' => __('Call Not Found or already accepted.')
-                    ]
-                ]);
-            }
-
-            $response = $whatsapp_service->acceptCall($call->call_id, $request->sdp);
-
-            if ($response->failed()) {
-                \Log::error('Failed to accept call', [
-                    'response' => $response->json(),
-                    'sdp' => $request->sdp
-                ]);
-                return back()->with([
-                    'status' => [
-                        'type' => 'error',
-                        'message' => __('Failed to accept call. Please try again.')
-                    ]
-                ]);
-            }
-
-            $call->status = 'accepted';
-            $call->session_id = session_id();
-            $call->save();
-
-            event(new \App\Events\UpdateCallEvent($call));
-            return back()->with([
-                'status' => [
-                    'type' => 'success',
-                    'message' => __('Call accepted successfully')
-                ]
-            ]);
-        });
-    }
-
-    public function terminateCall(Request $request)
-    {
-        $request->validate([
-            'call_id' => 'required|string|exists:calls,call_id',
-        ]);
-
-
-        $whatsapp_service = whatsapp_service();
-        if(!$whatsapp_service instanceof WhatsappService) {
-            return back()->with([
-                'status' => [
-                    'type' => 'error',
-                    'message' => __('WhatsApp service not configured')
-                ]
-            ]);
-        }
-
-        return DB::transaction(function () use ($request, $whatsapp_service) {
-            $call = Call::where('call_id', $request->call_id)
-                ->whereNot('status', 'completed')
-                ->where(function (Builder $query) {
-                    $query->whereNull('session_id')
-                          ->orWhere('session_id', session_id());
-                })
-                ->lockForUpdate()
-                ->first();
-            if(!$call) {
-                return back()->with([
-                    'status' => [
-                        'type' => 'error',
-                        'message' => __('Call Not Found or already terminated.')
-                    ]
-                ]);
-            }
-            $response = $whatsapp_service->terminateCall($call->call_id);
-            if($response->failed()) {
-                \Log::error('Failed to terminate call', [
-                    'response' => $response->json(),
-                ]);
-                return back()->with([
-                    'status' => [
-                        'type' => 'error',
-                        'message' => __('Failed to terminate call. Please try again.')
-                    ]
-                ]);
-            }
-
-            $call->status = 'terminated';
-            $call->save();
-            return back()->with([
-                'status' => [
-                    'type' => 'success',
-                    'message' => __('Call terminated successfully')
-                ]
-            ]);
-        });
     }
 }

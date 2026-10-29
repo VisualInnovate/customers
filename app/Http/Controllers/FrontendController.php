@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller as BaseController;
 use App\Http\Resources\FaqResource;
 use App\Http\Resources\PageResource;
-use App\Models\Addon;
 use App\Models\Faq;
 use App\Models\Page;
 use App\Models\Review;
@@ -37,13 +36,11 @@ class FrontendController extends BaseController
                 Faq::where('status', '1')->get()
             );
             $data['reviews'] = Review::where('status', 1)->get();
-            $data['currency'] = Setting::where('key', 'currency')->first()->value;
+            $data['currency'] = Setting::where('key', 'currency')->value('value') ?? 'USD';
 
             $keys = ['logo', 'company_name', 'address', 'email', 'phone', 'socials', 'trial_period'];
             $data['companyConfig'] = Setting::whereIn('key', $keys)->pluck('value', 'key')->toArray();
             $data['pages'] = Page::get();
-            $data['addons'] = Addon::where('status', 1)->where('is_plan_restricted', 1)->pluck('is_active', 'name');
-            $data['enable_ai_billing'] = Setting::where('key', 'enable_ai_billing')->value('value') ?? 0;
 
             return Inertia::render('Frontend/Index', $data);
         } else {

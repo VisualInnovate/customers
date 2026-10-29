@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, watchEffect, computed, onMounted, onUnmounted } from 'vue';
+    import { ref, watchEffect, computed } from 'vue';
     import axios from 'axios';
     import { router, useForm, Link, usePage } from '@inertiajs/vue3'
     import AlertModal from '@/Components/AlertModal.vue';
@@ -20,8 +20,8 @@
     const ticketState = ref(null);
     const isOpenModal = ref(false);
     const user = ref({ 
-        'label' : props.ticket?.user ? props.ticket?.user?.full_name : trans('Unassigned'),
-        'value' : props.ticket?.user ? props.ticket?.user?.id : 0, 
+        'label' : props.ticket?.user ? props.ticket?.user?.full_name  : trans('Unassigned'),
+        'value' : props.ticket?.user ? props.ticket?.user?.id  : 0, 
     });
 
     watchEffect(() => {
@@ -37,7 +37,7 @@
 
     const toggleView = () => {
         displayContact.value = !displayContact.value;
-        emit('toggleView', displayContact.value);
+        emit('toggleView', displayContact.value );
     }
 
     const deleteThread = () => {
@@ -77,7 +77,7 @@
     function loadUsers(query, setOptions) {
         fetch("/team?search=" + query, {
                 headers: {
-                    'Accept': 'application/json'
+                    'Accept': 'application/json' // Ensure that the request accepts JSON
                 }
             })
             .then(response => response.json())
@@ -108,95 +108,34 @@
             preserveState: true,
         });
     }
-
-    let peerConnection = null;
-    const configuration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' } // Public STUN server; add TURN if needed
-        ]
-    };
-
-    onMounted(() => {
-        peerConnection = new RTCPeerConnection(configuration);
-    });
-
-    onUnmounted(() => {
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-    });
-
-    const makeCall = async () => {
-        if (!peerConnection) return;
-
-        try {
-            // Get user media (audio only for simplicity)
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-
-            // Create offer
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            // Extract SDP
-            const sdpPayload = {
-                "session": {
-                    "sdp_type": "offer",
-                    "sdp": offer.sdp
-                },
-                "from": props.contact.formatted_phone_number,
-                "connection": {
-                    "webRTC": {
-                        "sdp": offer.sdp
-                    }
-                }
-            };
-
-            // Send SDP to server
-            await axios.post('/call', sdpPayload, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            });
-            console.log('SDP sent:', sdpPayload);
-        } catch (error) {
-            console.error('Error initiating call:', error);
-        }
-    }
 </script>
 <template>
-    <div class="h-20 bg-white border-b border-1 flex items-center justify-between px-4 md:px-4">
+    <div @click="toggleView" class="z-[100] h-20 bg-white border-b border-1 flex items-center justify-between px-4 md:px-4">
         <div class="flex items-center gap-x-4 cursor-pointer w-3/4">
             <Link href="/chats" class="sm:block md:hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H7.14l3.63-4.36a1 1 0 1 0-1.54-1.28l-5 6a1.19 1.19 0 0 0-.09.15c0 .05 0 .08-.07.13A1 1 0 0 0 4 12a1 1 0 0 0 .07.36c0 .05 0 .08.07.13a1.19 1.19 0 0 0 .09.15l5 6A1 1 0 0 0 10 19a1 1 0 0 0 .64-.23a1 1 0 0 0 .13-1.41L7.14 13H19a1 1 0 0 0 0-2"/></svg>
             </Link>
-            <div @click="toggleView">
+            <div >
                 <img v-if="contact.avatar" class="rounded-full w-14 h-14" :src="contact.avatar">
                 <div v-else class="rounded-full w-10 h-10 flex items-center justify-center bg-slate-100">{{ contact.full_name.substring(0, 1) }}</div>
             </div>
             <div class="flex items-center w-full gap-x-8">
                 <div>
-                    <div class="flex items-center" @click="toggleView">
+                    <div class="flex items-center" >
                         <span>{{ contact.full_name }}</span>
                     </div>
                     <div class="w-full flex items-center text-xs">
-                        <span @click="toggleView">{{ contact.formatted_phone_number }}</span>
+                        <span >{{ contact.formatted_phone_number }}</span>
                     </div>
                 </div>
-                <FormSelectCombo v-if="ticketingIsEnabled && accountUser.teams[0]['role'] != 'agent'" v-model="user" :name="''" :loadOptions="loadOptions" :class="'col-span-1 md:block hidden'" :placeholder="'Select Agent'" @update:modelValue="changeTicketAgent()"/>
+                <FormSelectCombo v-if="ticketingIsEnabled && accountUser.teams[0]['role'] != 'agent'" v-model="user" :name="''" :loadOptions="loadUsers" :class="'col-span-1 md:block hidden'" :placeholder="'Select Agent'" @update:modelValue="changeTicketAgent()"/>
             </div>
         </div>
         <div>
             <div class="flex items-center space-x-4">
                 <button v-if="ticketState === 'open' && ticketingIsEnabled" @click="changeTicketStatus('closed')" class="text-sm md:inline-flex hidden justify-center rounded-md border border-transparent bg-red-800 px-4 py-1 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{{ $t('Mark as closed') }}</button>
                 <button v-if="ticketState === 'closed' && ticketingIsEnabled" @click="changeTicketStatus('open')" class="text-sm md:inline-flex hidden justify-center rounded-md border border-transparent bg-primary px-4 py-1 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{{ $t('Mark as open') }}</button>
-                <button v-if="!displayContact" @click="makeCall" class="inline-flex justify-center items-center rounded-md bg-primary p-2 text-white hover:bg-opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2" title="Make a call">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1.45 1 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.24 1.02l-2.2 2.2z"/>
-                    </svg>
-                </button>
+
                 <Dropdown v-if="!displayContact">
                     <button type="button" class="inline-flex w-full justify-center items-center rounded-md text-sm font-medium text-black hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
                         <span class="bg-slate-200 p-1 rounded-full cursor-pointer flex items-center justify-center">
@@ -212,7 +151,7 @@
                         </DropdownItemGroup>
                     </template>
                 </Dropdown>
-                <div v-else @click="toggleView" class="bg-slate-200 p-2 rounded-lg text-sm cursor-pointer">
+                <div v-else @click="toggleContactView" class="bg-slate-200 p-2 rounded-lg text-sm cursor-pointer">
                     <span>{{ $t('Back') }}</span>
                 </div>
             </div>

@@ -2,14 +2,16 @@
     import { ref, onMounted } from 'vue';
     import { router } from "@inertiajs/vue3";
     
-    const props = defineProps(['appId', 'configId', 'graphAPIVersion'])
+    const props = defineProps({
+        appId: {
+            type: String
+        },
+        configId: {
+            type: String
+        }
+    })
 
     const isSetupLoading = ref(false);
-
-    let waba_id = null;
-    let business_id = null;
-    let phone_number_id = null;
-    let business_app_onboarding = false;
 
     onMounted(() => {
         window.fbAsyncInit = function () {
@@ -18,7 +20,7 @@
                 appId: props.appId, // Facebook App ID
                 cookie: true, // enable cookies
                 xfbml: true, // parse social plugins on this page
-                version: props.graphAPIVersion // Graph API version
+                version: 'v20.0' // Graph API version
             });
         };
 
@@ -42,12 +44,8 @@
             const data = JSON.parse(event.data);
             if (data.type === 'WA_EMBEDDED_SIGNUP') {
                 // if user finishes the Embedded Signup flow
-                if (data.event === 'FINISH' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
-                    business_id = data.data.business_id;
-                    phone_number_id = data.data.phone_number_id;
-                    waba_id = data.data.waba_id;
-                    business_app_onboarding = (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING');
-                    console.log(data);
+                if (data.event === 'FINISH') {
+                    const {phone_number_id, waba_id} = data.data;
                 }
                 // if user cancels the Embedded Signup flow
                 else {
@@ -77,12 +75,8 @@
                 isSetupLoading.value = true;
 
                 //console.log(response.authResponse);
-                router.post(`/settings/whatsapp/embedded-signup/submit`, {
+                router.post(`/whatsapp/exchange-code`, {
                     token: response.authResponse.code,
-                    business_id: business_id,
-                    phone_number_id: phone_number_id,
-                    waba_id: waba_id,
-                    business_app_onboarding: business_app_onboarding,
                 }, {
                     preserveState: true,
                     onSuccess: () => {
@@ -99,8 +93,7 @@
             response_type: 'code', // must be set to 'code' for System User access token
             override_default_response_type: true, // when true, any response types passed in the "response_type" will take precedence over the default types
             extras: {
-                sessionInfoVersion: 3,
-                featureType: 'whatsapp_business_app_onboarding', // set to 'whatsapp_business_app_onboarding'
+                sessionInfoVersion: 2,
                 setup: {
                     // Prefilled data can go here
                 }

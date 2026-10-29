@@ -74,6 +74,9 @@
                 <TableHeaderRowItem :position="'first'">{{ $t('Name') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Category') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Preview') }}</TableHeaderRowItem>
+                <!--<TableHeaderRowItem>Messages Delivered</TableHeaderRowItem>
+                <TableHeaderRowItem>Read Rate</TableHeaderRowItem>
+                <TableHeaderRowItem>Block Reason</TableHeaderRowItem>-->
                 <TableHeaderRowItem>{{ $t('Status') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Last updated') }}</TableHeaderRowItem>
                 <TableHeaderRowItem :position="'last'"></TableHeaderRowItem>
@@ -88,6 +91,9 @@
                         {{ findBodyText(item.metadata) }}
                     </div>
                 </TableBodyRowItem>
+                <!--<TableBodyRowItem class="hidden sm:table-cell">0</TableBodyRowItem>
+                <TableBodyRowItem class="hidden sm:table-cell">0</TableBodyRowItem>
+                <TableBodyRowItem class="hidden sm:table-cell">--</TableBodyRowItem>-->
                 <TableBodyRowItem>
                     <span v-if="item.status == 'APPROVED'" class="py-1 rounded-[5px] text-xs px-3 bg-[#ebfdf4] text-[#38733f]">{{ $t(capitalizeFirstLetter(item.status)) }}</span>
                     <span v-else-if="item.status == 'REJECTED'" class="py-1 rounded-[5px] text-xs px-3 bg-[#fae6e6] text-[darkred]">{{ $t(capitalizeFirstLetter(item.status)) }}</span>
@@ -105,7 +111,7 @@
                         </button>
                         <template #items>
                             <DropdownItemGroup>
-                                <DropdownItem v-if="item.status == 'APPROVED' || item.status == 'REJECTED' || item.status == 'PAUSED'" :href="'/templates/' + item.uuid + '?fetch_url=true'">{{ $t('edit') }}</DropdownItem>
+                                <DropdownItem :href="'/templates/' + item.uuid">{{ $t('Show') }}</DropdownItem>
                                 <DropdownItem as="button" @click="openAlert(item.uuid)">{{ $t('Delete') }}</DropdownItem>
                             </DropdownItemGroup>
                         </template>

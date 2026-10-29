@@ -17,8 +17,8 @@ class CreateEmailLogsTable extends Migration
             $table->bigIncrements('id');
             $table->char('uuid', 50)->unique();
             $table->integer('user_id')->nullable();
-            $table->string('recipient');
-            $table->string('subject');
+            $table->string('recipient', 255);
+            $table->string('subject', 255);
             $table->text('message');
             $table->enum('status', ['queued', 'sent', 'failed'])->default('queued');
             $table->integer('attempts')->default(0);

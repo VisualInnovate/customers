@@ -144,11 +144,12 @@
                 enabled: false
             }
         },
-        colors: ['#418207'],
+        colors: ['#391a55'],
         fill: {
             type: 'gradient',
             gradient: {
                 shadeIntensity: 1,
+                gradientToColors: ['#5e2e7a'],
                 opacityFrom: 0.7,
                 opacityTo: 0.9,
                 stops: [0, 90, 100]

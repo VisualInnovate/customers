@@ -23,10 +23,6 @@ class SetupController extends BaseController
             ]);
         }
 
-        if(isset($request->is_active)){
-            Addon::where('uuid', $request->uuid)->update(['is_active' => $request->is_active]);
-        }
-
         return redirect('/admin/addons')->with(
             'status', [
                 'type' => 'success', 

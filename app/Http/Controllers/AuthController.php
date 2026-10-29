@@ -11,11 +11,9 @@ use App\Http\Requests\SignupRequest;
 use App\Http\Requests\StoreUser;
 use App\Http\Requests\StoreUserInvite;
 use App\Http\Requests\PasswordValidateResetRequest;
-use App\Http\Requests\TfaRequest;
 use App\Services\AuthService;
 use App\Services\PasswordResetService;
 use App\Services\UserService;
-use App\Models\Addon;
 use App\Models\Organization;
 use App\Models\PasswordResetToken;
 use App\Models\Setting;
@@ -52,64 +50,49 @@ class AuthController extends BaseController
     }
 
     public function login(LoginRequest $request){
-        $user = User::where('email', $request->email)->where('deleted_at', null)->first();
-        $addon = Addon::where('name', 'Google Authenticator')->first()->is_active; 
-        $remember = $request->remember;
+        $user = User::where('email', $request->email)
+            ->where('status', '1')
+            ->whereNull('deleted_at')
+            ->first();
 
-        if ($user->tfa && $addon == 1) {
-            $request->session()->put('tfa', $user->id);
-            $request->session()->put('remember', $remember);
-      
-            return redirect('/tfa');
+        if (!$user) {
+            return back()->withErrors([
+                'email' => __('Your credentials are incorrect!'),
+            ])->onlyInput('email');
         }
 
-        return $this->doLogin($request, $user, $remember);
-    }
+        $guard = $user->role === 'admin' ? 'admin' : 'user';
+        $authenticated = Auth::guard($guard)->attempt([
+            'email' => $request->email,
+            'password' => $request->password,
+        ]);
 
-    public function showTfaForm(Request $request)
-    {
-        if (!$request->session()->has('tfa')) {
-            return redirect('/login');
+        if (!$authenticated) {
+            return back()->withErrors([
+                'email' => __('Your credentials are incorrect!'),
+            ])->onlyInput('email');
         }
 
-        $keys = ['logo', 'company_name', 'address', 'email', 'phone', 'socials', 'trial_period', 'allow_facebook_login','allow_google_login'];
-
-        $data['companyConfig'] = Setting::whereIn('key', $keys)
-            ->pluck('value', 'key')
-            ->toArray();
-
-        return Inertia::render('Auth/Tfa', $data);
-    }
-
-    public function tfaVerify(TfaRequest $request)
-    {
-        $userId = $request->session()->get('tfa');
-        $remember = $request->session()->get('remember');
-
-        $user = User::find($userId);
-
-        return $this->doLogin($request, $user, $remember);
-    }
-
-    private function doLogin(Request $request, $user, $remember)
-    {
-        $guard = $user->role == 'user' ? 'user' : 'admin';
-
-        if ($request->email || $request->password) {
-            Auth::guard($guard)->attempt(['email' => $request->email, 'password' => $request->password], $remember);
-        } else {
-            Auth::guard($guard)->login($user, $remember);
-        }
+        $request->session()->regenerate();
+        $authenticatedUser = Auth::guard($guard)->user();
 
         //Check number of organizations
-        if($guard == 'user'){
-            $teams = Team::where('user_id', auth()->user()->id);
+        if ($guard === 'user') {
+            $teams = Team::where('user_id', $authenticatedUser->id);
             if($teams->count() == 1){
                 session()->put('current_organization', $teams->first()->organization_id);
             }
         }
 
-        return redirect($user->role == 'user' ? '/dashboard' : 'admin/dashboard');
+        if ($authenticatedUser->role === 'admin') {
+            return redirect('admin/dashboard');
+        }
+        
+        if ($user->role == 'user' && optional($user->teams->first())->role == 'agent') {
+            return redirect('/chats');
+        }
+        
+        return redirect('/dashboard');        
     }
 
     public function handleLogin(StoreUser $request)
@@ -192,7 +175,6 @@ class AuthController extends BaseController
                         $user->email = $facebookUser->email;
                         $user->facebook_id = $facebookUser->id;
                         $user->password = null;
-                        $user->email_verified_at = now();
                         $user->role = 'user';
                         $user->save();
                 
@@ -252,7 +234,6 @@ class AuthController extends BaseController
                 $user->last_name = isset($name[1]) ? $name[1] : NULL;
                 $user->email = $gUser->email;
                 $user->password = NULL;
-                $user->email_verified_at = now();
                 $user->role = 'user';
                 $user->save();
 

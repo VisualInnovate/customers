@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div>
-                    <Link href="/admin/team/roles/create" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add role') }}</Link>
+                    <Link href="/admin/team/roles/create" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add role') }}</Link>
                 </div>
             </div>
             <RoleTable :rows="props.rows" :filters="props.filters" />

@@ -33,7 +33,7 @@ class StoreCampaign extends FormRequest
         } else {
             $rules['name'] = ['required'];
         }
-    
+
         if (!$this->input('skip_schedule')) {
             $rules['time'] = 'required';
         }
@@ -41,27 +41,27 @@ class StoreCampaign extends FormRequest
         // Check for header.format and header.parameters[0].value
         $headerParams = $this->input('header.parameters');
 
-        if(!empty($headerParams)){
+        if (!empty($headerParams)) {
             $format = $this->input('header.format');
 
             // Rules for image format
             if ($format === 'TEXT') {
-                $rules['header.parameters.0.value'] = 'required|max:60'; // Max 60 characters
+                $rules['header.parameters.0.value'] = 'nullable|max:60'; // Max 60 characters
             }
 
             // Rules for image format
             if ($format === 'IMAGE') {
-                $rules['header.parameters.0.value'] = 'required|image|mimes:png,jpg|max:5120'; // Max 5MB
+                $rules['header.parameters.0.value'] = 'nullable|image|mimes:png,jpg|max:5120'; // Max 5MB
             }
 
             // Rules for video format
             if ($format === 'VIDEO') {
-                $rules['header.parameters.0.value'] = 'required|file|mimes:mp4|max:16384'; // Max 5MB
+                $rules['header.parameters.0.value'] = 'nullable|file|mimes:mp4|max:16384'; // Max 5MB
             }
 
             // Rules for document format
             if ($format === 'DOCUMENT') {
-                $rules['header.parameters.0.value'] = 'required|file|mimes:pdf,txt,ppt,doc,xls,docx,pptx,xlsx|max:102400'; // Max 100MB
+                $rules['header.parameters.0.value'] = 'nullable|file|mimes:pdf,txt,ppt,doc,xls,docx,pptx,xlsx|max:102400'; // Max 100MB
             }
         }
 
@@ -69,7 +69,7 @@ class StoreCampaign extends FormRequest
         $bodyParams = $this->input('body.parameters');
         $bodyParamValue = $this->input('body.parameters.0.value');
 
-        if(!empty($bodyParams)){
+        if (!empty($bodyParams)) {
             $rules['body.parameters.0.value'] = 'required|max:1028';
         }
 
@@ -79,7 +79,7 @@ class StoreCampaign extends FormRequest
 
         foreach ($buttons as $index => $button) {
             $buttonType = $button['type'];
-            
+
             switch ($buttonType) {
                 case 'QUICK_REPLY':
                     $rules["buttons.$index.parameters.0.value"] = 'required|max:25'; // Adjust max as needed
@@ -93,7 +93,7 @@ class StoreCampaign extends FormRequest
                         $rules["buttons.$index.parameters.0.value"] = 'required|url|max:2000'; // Adjust max as needed
                     }
                     break;
-                // Add more cases for other button types as needed
+                    // Add more cases for other button types as needed
             }
         }
 

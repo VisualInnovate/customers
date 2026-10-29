@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller as BaseController;
+use App\Http\Requests\RecordCashPaymentRequest;
 use App\Http\Requests\StoreOrganization;
 use App\Services\OrganizationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class OrganizationController extends BaseController
@@ -109,6 +111,35 @@ class OrganizationController extends BaseController
                 'message' => __('Organization updated successfully!')
             ]
         );
+    }
+
+    public function recordCashPayment(RecordCashPaymentRequest $request, $uuid)
+    {
+        $this->organizationService->recordCashPayment($request, $uuid);
+
+        return back()->with(
+            'status', [
+                'type' => 'success',
+                'message' => __('Cash payment recorded and subscription activated successfully!'),
+            ]
+        );
+    }
+
+    public function cashPaymentQuote(Request $request, $uuid)
+    {
+        $validated = $request->validate([
+            'plan' => [
+                'required',
+                'string',
+                Rule::exists('subscription_plans', 'uuid')
+                    ->where('status', 'active')
+                    ->whereNull('deleted_at'),
+            ],
+        ]);
+
+        return response()->json([
+            'amountDue' => $this->organizationService->getCashPaymentQuote($uuid, $validated['plan']),
+        ]);
     }
 
     /**

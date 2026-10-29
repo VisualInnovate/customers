@@ -1,5 +1,5 @@
 <template>
-    <SettingLayout :modules="props.modules">
+    <SettingLayout>
         <div class="md:h-[90vh]">
             <div class="flex justify-center items-center mb-8">
                 <div class="md:w-[60em]">
@@ -12,7 +12,7 @@
                                 </span>
                             </div>
                             <div class="ml-auto">
-                                <EmbeddedSignupBtn v-if="embeddedSignupActive == 1" :appId="props.appId" :configId="props.configId" :graphAPIVersion="props.graphAPIVersion"/>
+                                <EmbeddedSignupBtn v-if="embeddedSignupActive == 1" :appId="props.appId" :configId="props.configId"/>
                                 <button v-else  @click="openModal()" class="bg-primary text-white p-2 rounded-lg text-sm mt-5 flex px-3 w-fit">
                                     {{ $t('Setup whatsapp') }}
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><g fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"><g opacity=".2"><path d="M12.206 5.848a1.5 1.5 0 0 1 2.113.192l3.333 4a1.5 1.5 0 1 1-2.304 1.92l-3.334-4a1.5 1.5 0 0 1 .192-2.112Z"/><path d="M12.206 16.152a1.5 1.5 0 0 1-.192-2.112l3.334-4a1.5 1.5 0 0 1 2.304 1.92l-3.333 4a1.5 1.5 0 0 1-2.113.192Z"/><path d="M16 11a1.5 1.5 0 0 1-1.5 1.5h-8a1.5 1.5 0 0 1 0-3h8A1.5 1.5 0 0 1 16 11Z"/></g><path d="M11.347 5.616a.5.5 0 0 1 .704.064l3.333 4a.5.5 0 0 1-.768.64l-3.333-4a.5.5 0 0 1 .064-.704Z"/><path d="M11.347 14.384a.5.5 0 0 1-.064-.704l3.333-4a.5.5 0 0 1 .768.64l-3.333 4a.5.5 0 0 1-.704.064Z"/><path d="M15.5 10a.5.5 0 0 1-.5.5H5a.5.5 0 0 1 0-1h20a.5.5 0 0 1 .5.5Z"/></g></svg>
@@ -80,20 +80,6 @@
                                 <button v-if="settings?.whatsapp && settings?.whatsapp?.is_embedded_signup === 0" type="button" @click="openModal2()" class="bg-primary text-white p-2 rounded-lg text-sm mt-5 flex px-3 w-fit">
                                     {{ $t('Update token') }}
                                 </button>
-                            </div>
-                        </div>
-                        <div class="flex space-x-10 border-b w-full px-4 py-6">
-                            <div class="w-[40%]">
-                                <span class="text-slate-600">{{ $t('Whatsapp profile picture') }}</span>
-                                <div class="text-xs text-slate-700 flex items-center">
-                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                    <span>{{ $t('Add/update your profile picture') }}</span>
-                                </div>
-                            </div>
-                            <div class="w-[60%]">
-                                <FormImageLogo v-model="form2.profile_picture_url" :name="''" :error="form2.errors.profile_picture_url" :label="$t('Upload logo')" :imageUrl="form2.profile_picture_url" :class="'col-span-4 ml-6'"/>
-                                <div class="ml-6">{{ $t('Accepted formats: JPG/PNG') }}</div>
-                                <div class="ml-6">{{ $t('Minimum dimensions: 192x192 pixels.') }}</div>
                             </div>
                         </div>
                         <div class="flex space-x-10 border-b w-full px-4 py-6">
@@ -245,7 +231,6 @@
     import { ref } from 'vue';
     import EmbeddedSignupBtn from '@/Components/EmbeddedSignupBtn.vue';
     import FormModal from '@/Components/FormModal.vue';
-    import FormImageLogo from '@/Components/FormImageLogo.vue';
     import FormInput from '@/Components/FormInput.vue';
     import FormSelect from '@/Components/FormSelect.vue';
     import FormTextArea from '@/Components/FormTextArea.vue';
@@ -253,7 +238,7 @@
     import { trans } from 'laravel-vue-i18n';
     import { router, useForm } from "@inertiajs/vue3";
 
-    const props = defineProps(['settings', 'embeddedSignupActive', 'appId', 'configId', 'graphAPIVersion', 'modules']);
+    const props = defineProps({ settings: Object, embeddedSignupActive: Number, appId: String, configId: String });
     const statusView = ref(false);
     const config = ref(props.settings.metadata);
     const currentURL = ref(window.location.origin);
@@ -269,7 +254,6 @@
     });
 
     const form2 = useForm({
-        profile_picture_url: settings.value && settings.value.whatsapp ? settings.value?.whatsapp?.business_profile?.profile_picture_url : null,
         description: settings.value && settings.value.whatsapp ? settings.value?.whatsapp?.business_profile?.description : null,
         address: settings.value && settings.value.whatsapp ? settings.value?.whatsapp?.business_profile?.address : null,
         email: settings.value && settings.value.whatsapp ? settings.value?.whatsapp?.business_profile?.email : null,

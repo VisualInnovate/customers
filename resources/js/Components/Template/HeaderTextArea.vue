@@ -1,45 +1,21 @@
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     modelValue: [String, Number],
-    customValues: {
-        type: Array,
-        default: () => [],
-    },
 })
 
-const textInput = ref(props.modelValue);
+const textInput = ref('');
 const placeholders = ref([]);
 const originalNumbers = ref({});
-const customValues = ref(props.customValues);
+const customValues = ref([]);
 const characterLimit = ref('60');
 const characterCount = ref('0');
 const variableButtonDisabled = ref(false);
 
-const transformToPlaceholders = () => {
-    if (!Array.isArray(customValues.value)) {
-        console.error("customValues is not an array");
-        return;
-    }
-
-    if (customValues.value.some(value => value === '')) {
-        console.warn("Some custom values are empty.");
-        return;
-    }
-    
-    placeholders.value = customValues.value.map((_, index) => `{{${index + 1}}}`);
-};
-
-// Run transformation on component mount
-onMounted(() => {
-    transformToPlaceholders();
-    countCharacters();
-});
-
 const addVariable = () => {
     let limit = parseInt(characterLimit.value);
-    let count = parseInt(textInput.value?.length);
+    let count = parseInt(textInput.value.length);
 
     if (count < limit && placeholders.value.length === 0) {
         const newPlaceholder = `{{1}}`;
@@ -65,7 +41,7 @@ const updatePlaceholders = () => {
     if (matches) {
         placeholders.value = [matches[0]]; // Ensure only the first match is kept
         originalNumbers.value = { [matches[0]]: 1 };
-        //customValues.value = [''];
+        customValues.value = [''];
         variableButtonDisabled.value = true;
     } else {
         placeholders.value = [];
@@ -80,11 +56,6 @@ const updatePlaceholders = () => {
 
 
 const countCharacters = (type) => {
-    if (!textInput.value) {
-        characterCount.value = 0;
-        return;
-    }
-    
     let limit = parseInt(characterLimit.value);
     let count = parseInt(textInput.value.length);
 

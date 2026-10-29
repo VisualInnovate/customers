@@ -30,11 +30,11 @@ class AddonController extends BaseController
         $settings = $request->settings;
 
         foreach ($settings as $key => $value) {
-            DB::table('settings')->updateOrInsert(['key' => $key],['value' => $value]);
-        }
-
-        if(isset($request->is_active)){
-            Addon::where('uuid', $request->uuid)->update(['is_active' => $request->is_active]);
+            DB::table('settings')->updateOrInsert([
+                'key' => $key
+            ],[
+                'value' => $value,
+            ]);
         }
 
         return redirect('/admin/addons')->with(
@@ -50,12 +50,5 @@ class AddonController extends BaseController
         $ModuleService = new ModuleService;
 
         return $ModuleService->install($request);
-    }
-
-    public function update(Request $request)
-    {
-        $ModuleService = new ModuleService;
-
-        return $ModuleService->update($request);
     }
 }

@@ -2,13 +2,11 @@
 
 namespace App\Imports;
 
+use App\Models\Chat;
+use App\Models\ChatLog;
 use App\Models\Contact;
-use App\Models\ContactField;
 use App\Models\ContactGroup;
-use App\Models\Setting;
-use App\Models\Subscription;
-use App\Models\SubscriptionPlan;
-use App\Rules\ContactLimit;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -18,171 +16,121 @@ use Propaganistas\LaravelPhone\PhoneNumber;
 
 class ContactsImport extends \PhpOffice\PhpSpreadsheet\Cell\StringValueBinder implements ToModel, WithHeadingRow, WithCustomValueBinder, WithChunkReading
 {
-    protected $totalImports = 0;
     protected $successfulImports = 0;
-    protected $failedImports = [];
+    protected $totalImports = 0;
+    protected $failedImportsDueToFirstName = 0;
     protected $failedImportsDueToFormat = 0;
     protected $failedImportsDueToDuplicates = 0;
-    protected $failedImportsDueToLimit = 0;
 
-    /**
-    * @param array $row
-    *
-    * @return \Illuminate\Database\Eloquent\Model|null
-    */
     public function model(array $row)
     {
         try {
             $this->totalImports++;
-
-            $phoneNumberValue = $row['phone'];
-
+    
+            // Normalize the phone number.
+            $phoneNumberValue = trim($row['phone'] ?? '');
             if (!str_starts_with($phoneNumberValue, '+')) {
                 $phoneNumberValue = '+' . $phoneNumberValue;
             }
-
-            // Sequential Validation: First check the first_name field
+    
+            // Basic validation for required fields.
             $validator = Validator::make($row, [
-                'first_name' => 'required', // Make first_name required
+                'first_name' => 'required',
+                'phone'      => 'required'
+            ], [
+                'first_name.required' => 'The first name is required.',
+                'phone.required'      => 'The phone is required.'
             ]);
-
-            // If first_name fails, stop further validation and return the error
+    
             if ($validator->fails()) {
-                $this->failedImports[] = [
-                    'row' => $row['phone'],
-                    'error' => __('First name required!')
-                ];
+                $this->failedImportsDueToFirstName++;
+                return null;
+            }
+    
+            // Validate phone number.
+            $phoneNumberObj = new PhoneNumber($phoneNumberValue);
+            if (!$phoneNumberObj->isValid()) {
                 $this->failedImportsDueToFormat++;
                 return null;
             }
-
-            // If first_name passes, proceed to validate the phone field
-            $validator = Validator::make($row, [
-                'phone' => 'required', // Make phone required
-            ]);
-
-            // If phone is invalid, add the error and return
-            if ($validator->fails()) {
-                $this->failedImports[] = [
-                    'row' => $row['phone'],
-                    'error' => __('Phone number required!')
-                ];
-                $this->failedImportsDueToFormat++;
-                return null;
-            }
-
-            // Now validate the phone number format
-            $phoneNumber = new PhoneNumber($phoneNumberValue);
-
-            if (!$phoneNumber->isValid()) {
-                $this->failedImports[] = [
-                    'row' => $row['phone'],
-                    'error' => __('Invalid format!')
-                ];
-                $this->failedImportsDueToFormat++;
-                return null;
-            }
-
+    
+            // Format phone as E164.
+            $phoneNumber = phone($phoneNumberValue)->formatE164();
             $organizationId = session()->get('current_organization');
-            // Check if the phone number already exists in the database
-//            if (Contact::where('organization_id', $organizationId)
-//                    ->where('phone', $phoneNumber)
-//                    ->whereNull('deleted_at')
-//                    ->exists()) {
-//                $this->failedImports[] = [
-//                    'row' => $row['phone'],
-//                    'error' => __('Duplicate phone number!')
-//                ];
-//                $this->failedImportsDueToDuplicates++;
-//                return null;
-//            }
-
-            // Fetch dynamic fields from contact_fields table
-            $existingContactCount = Contact::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
-            $contactLimit = $this->contactSubscriptionLimit($organizationId);
-
-            // Check if the total contacts would exceed the limit
-            if ($contactLimit != '-1' && ($existingContactCount + 1) > $contactLimit) {
-                $this->failedImports[] = [
-                    'row' => $row['phone'],
-                    'error' => __('Contact limit reached!')
-                ];
-                $this->failedImportsDueToLimit++;
-                return null;
+    
+            // 1. Find existing contacts (including soft-deleted ones) with this phone number.
+            $existingContacts = Contact::withTrashed()
+                ->where('organization_id', $organizationId)
+                ->where('phone', $phoneNumber)
+                ->get();
+    
+            // 2. Save their IDs and get latest chat timestamp.
+            $oldContactIds = $existingContacts->pluck('id')->toArray();
+            $latestChatTimestamp = null;
+            if (!empty($oldContactIds)) {
+                $latestChatTimestamp = Chat::whereIn('contact_id', $oldContactIds)->max('created_at');
             }
+    
+            // 3. Handle group association if provided.
+            $group = null;
+            if (isset($row['group_name'])) {
+                $group = ContactGroup::firstOrCreate(
+                    [
+                        'organization_id' => $organizationId,
+                        'name'            => $row['group_name']
+                    ],
+                    [
+                        'created_by'      => auth()->user()->id
+                    ]
+                );
+            }
+    
+            // 4. Create the new contact.
+            $newContact = Contact::create([
+                'organization_id'  => $organizationId,
+                'first_name'       => $row['first_name'],
+                'last_name'        => $row['last_name'] ?? null,
+                'phone'            => $phoneNumber,
+                'email'            => $row['email'] ?? null,
+                'address'          => json_encode([
+                    'street'  => $row['street']  ?? null,
+                    'city'    => $row['city']    ?? null,
+                    'state'   => $row['state']   ?? null,
+                    'zip'     => $row['zip']     ?? null,
+                    'country' => $row['country'] ?? null,
+                ]),
+                'contact_group_id' => $group ? $group->id : null,
+                'created_by'       => auth()->user()->id,
+            ]);
+    
+            // 5. Reassign chats from old contacts to the new contact.
+            if (!empty($oldContactIds)) {
+                Chat::whereIn('contact_id', $oldContactIds)
+                    ->update(['contact_id' => $newContact->id]);
 
-            // Fetch dynamic fields from contact_fields table
-            $contactFields = ContactField::where('organization_id', $organizationId)->pluck('name')->toArray();
-
-            $metadata = [];
-
-            foreach ($contactFields as $field) {
-                $normalizedField = strtolower($field); 
-
-                if (isset($row[$normalizedField])) {
-                    $metadata[$field] = $row[$normalizedField];
+                ChatLog::whereIn('contact_id', $oldContactIds)
+                    ->update(['contact_id' => $newContact->id]);
+    
+                if ($latestChatTimestamp) {
+                    $newContact->update(['latest_chat_created_at' => $latestChatTimestamp]);
                 }
             }
-
-            $contact =  Contact::query()->updateOrCreate([
-                    'organization_id'  => $organizationId,
-                    'phone'       => $phoneNumber,
-                    'deleted_at'  => null
-                ], [
-                    'phone'       => phone($phoneNumberValue)->formatE164(),
-                    'first_name'  => $row['first_name'],
-                    'last_name'   => $row['last_name'],
-                    'email'       => $row['email'],
-                    'address'     => json_encode([
-                        'street'  => $row['street'] ?? null,
-                        'city'    => $row['city'] ?? null,
-                        'state'   => $row['state'] ?? null,
-                        'zip'     => $row['zip'] ?? null,
-                        'country' => $row['country'] ?? null
-                    ]),
-                    'metadata'    => !empty($metadata) ? json_encode($metadata) : null,
-                    'created_by'  => auth()->user()->id,
-                ]
-            );
-
-            if($contact){
-                $this->successfulImports++;
-
-                // Process contact groups (if provided)
-                if (!empty($row['group_name'])) {
-                    $groupNames = explode('|', $row['group_name'] ?? ''); // Split by comma
-                    $groupNames = array_map('trim', $groupNames); // Trim whitespace
-
-                    foreach ($groupNames as $groupName) {
-                        $group = ContactGroup::firstOrCreate([
-                            'organization_id' => $organizationId,
-                            'name'            => $groupName,
-                            'deleted_at'      => null
-                        ], [
-                            'created_by' => auth()->user()->id,
-                        ]);
-
-                        // Attach contact to the group via pivot table
-                        $contact->contactGroups()->attach($group->id);
-                    }
-                }
-
-                return $contact;
+    
+            // 6. Now delete the old contacts.
+            if (!empty($oldContactIds)) {
+                Contact::whereIn('id', $oldContactIds)->forceDelete();
             }
+    
+            $this->successfulImports++;
+            return $newContact;
         } catch (\Exception $e) {
-            $this->failedImports[] = [
-                'row' => $row['phone'],
-                'error' => __('Invalid format!')
-            ];
+            Log::error("Contact Import Error: " . $e->getMessage(), [
+                'row'       => $row,
+                'exception' => $e,
+            ]);
             $this->failedImportsDueToFormat++;
-
             return null;
         }
-    }
-
-    public function getFailedImportsDueToFormat()
-    {
-        return $this->failedImportsDueToFormat;
     }
 
     public function getFailedImportsDueToDuplicatesCount()
@@ -190,19 +138,19 @@ class ContactsImport extends \PhpOffice\PhpSpreadsheet\Cell\StringValueBinder im
         return $this->failedImportsDueToDuplicates;
     }
 
-    public function getFailedImportsDueToLimit()
+    public function getFailedImportsDueToFirstName()
     {
-        return $this->failedImportsDueToLimit;
+        return $this->failedImportsDueToFirstName;
+    }
+
+    public function getFailedImportsDueToFormat()
+    {
+        return $this->failedImportsDueToFormat;
     }
 
     public function getSuccessfulImports()
     {
         return $this->successfulImports;
-    }
-
-    public function getFailedImports()
-    {
-        return $this->failedImports;
     }
 
     public function getTotalImportsCount()
@@ -212,32 +160,9 @@ class ContactsImport extends \PhpOffice\PhpSpreadsheet\Cell\StringValueBinder im
 
     public function chunkSize(): int
     {
-        return 1000; // Adjust the chunk size as needed
-    }
-
-    private function contactSubscriptionLimit($organizationId)
-    {
-        $subscription = Subscription::where('organization_id', $organizationId)->first();
-        $subscriptionPlan = SubscriptionPlan::find($subscription->plan_id);
-        $count = Contact::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
-
-        if($subscription->status === 'trial' && $subscription->valid_until > now()){
-            $limit = optional(Setting::where('key', 'trial_limits')->first())->value;
-            $usageLimit = $limit ? json_decode($limit, true)['contacts'] ?? '-1' : '-1';
-        }
-
-        if ($subscriptionPlan) {
-            $subscriptionPlanLimits = json_decode($subscriptionPlan->metadata, true);
-
-            if (!array_key_exists('contacts_limit', $subscriptionPlanLimits)) {
-                $usageLimit = 0;
-            } else {
-                $usageLimit = $subscriptionPlanLimits['contacts_limit'];
-            }
-        }
-
-        return $usageLimit;
+        return 1000;
     }
 }
+
 
 

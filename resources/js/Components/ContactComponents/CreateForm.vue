@@ -1,5 +1,5 @@
 <script setup>
-    import { ref } from 'vue';
+    import { onMounted, ref } from 'vue';
     import { Link, useForm } from "@inertiajs/vue3";
     import FormCheckbox from '@/Components/FormCheckbox.vue';
     import FormInput from '@/Components/FormInput.vue';
@@ -7,11 +7,14 @@
     import FormSelect from '@/Components/FormSelect.vue';
     import FormTextArea from '@/Components/FormTextArea.vue';
     import { trans } from 'laravel-vue-i18n';
+    import axios from 'axios';
 
-    const props = defineProps(['contactGroups', 'contact', 'fields', 'locationSettings']);
+    const props = defineProps(['contactGroups', 'contact', 'fields', 'locationSettings', 'countries']);
     const fileUrl = props.contact?.avatar ? ref(props.contact?.avatar) : ref(null);
     const results = ref();
+    const tags = ref([])
     const inputFields = props.fields;
+
 
     const defaultFields = inputFields.reduce((acc, field) => {
         acc[field.name] = "";
@@ -22,24 +25,29 @@
         const address = JSON.parse(value);
         return address?.[key] ?? '';
     }
+     const getTags = async () => {
+        const { data } = await axios.get('/tags/contacts');
+        tags.value = data.data.map((tag) => { return { value: tag.id, label: tag.tag } });
+    }
 
     const form = useForm({
         first_name: props.contact?.first_name ?? null,
         last_name: props.contact?.last_name ?? null,
         phone: props.contact?.phone ?? null,
         email: props.contact?.email ?? null,
-        group: props.contact?.contact_groups ? props.contact.contact_groups.map(group => group.uuid || group) : [],
+        group: props.contact?.contact_group?.uuid ?? null,
         file: null,
+        tags: props.contact?.tags.map((tag) => tag.id) ?? [],
         street: props.contact?.address ? getAddressDetail(props.contact?.address, 'street') : null,
         city: props.contact?.address ? getAddressDetail(props.contact?.address, 'city') : null,
         state: props.contact?.address ? getAddressDetail(props.contact?.address, 'state') : null,
         zip: props.contact?.address ? getAddressDetail(props.contact?.address, 'zip') : null,
         country: props.contact?.address ? getAddressDetail(props.contact?.address, 'country') : null,
-        metadata: props.contact?.metadata ? JSON.parse(props.contact?.metadata) : defaultFields,
+        metadata: props.contact?.metadata && Array.isArray(props.contact?.metadata) ? JSON.parse(props.contact?.metadata) : defaultFields,
     });
 
     const contactGroupOptions = () => {
-        return props.contactGroups.map((option) => ({
+        return props.contactGroups?.map((option) => ({
             value: option.uuid,
             label: option.name,
         }));
@@ -79,6 +87,9 @@
     const transformOptions = (optionsString) => {
         return optionsString.split(", ").map(option => ({ label: option, value: option }));
     };
+    onMounted(async() => {
+        await getTags();
+    })
 </script>
 <template>
     <div class="h-20 bg-white border-b border-1 md:flex items-center justify-between px-10 hidden">
@@ -108,16 +119,15 @@
                 <FormInput v-model="form.last_name" :name="$t('Last name')" :error="form.errors.last_name" :type="'text'" :class="'sm:col-span-3'"/>
                 <FormPhoneInput v-model="form.phone" :name="$t('Phone')" :error="form.errors.phone" :type="'text'" :class="'sm:col-span-3'"/>
                 <FormInput v-model="form.email" :name="$t('Email')" :error="form.errors.email" :type="'text'" :class="'sm:col-span-3'"/>
-                <FormSelect v-model="form.group" :name="$t('Group')" :error="form.errors.group" :options="contactGroupOptions()" :type="'text'" :class="'sm:col-span-6'" :multiple="true"/>
+                <FormSelect v-model="form.group" :name="$t('Group')" :error="form.errors.group" :options="contactGroupOptions()" :type="'text'" :class="'sm:col-span-6'"/>
+                <FormSelect v-model="form.tags" multiple :name="$t('Tags')" :error="form.errors.tags" :options="tags" :type="'text'" :class="'sm:col-span-6'"/>
             </div>
-            <div v-if="locationSettings === 'before' && props.fields.length > 0">
-                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-4 pb-6 border-b">
-                    <div v-for="(input, index) in props.fields" :key="index" :class="input.type != 'input' ? 'sm:col-span-2' : 'sm:col-span-1'">
-                        <FormInput v-if="input.type === 'input'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :type="input.value" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormTextArea v-if="input.type === 'textarea'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormSelect v-if="input.type === 'select'" v-model="form.metadata[input.name]" :name="input.name" :options="transformOptions(input.value)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormCheckbox v-if="input.type === 'checkbox'" v-model="form.metadata[input.name]" :name="input.name" :label="input.name" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                    </div>
+            <div v-if="locationSettings === 'before'" class="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-4 pb-6 border-b">
+                <div v-for="(input, index) in props.fields" :key="index" :class="input.type != 'input' ? 'sm:col-span-2' : 'sm:col-span-1'">
+                    <FormInput v-if="input.type === 'input'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :type="input.value" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormTextArea v-if="input.type === 'textarea'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormSelect v-if="input.type === 'select'" v-model="form.metadata[input.name]" :name="input.name" :options="transformOptions(input.value)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormCheckbox v-if="input.type === 'checkbox'" v-model="form.metadata[input.name]" :name="input.name" :label="input.name" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
                 </div>
             </div>
             <div class="grid gap-x-6 gap-y-4 sm:grid-cols-6 pt-4 pb-6">
@@ -125,16 +135,16 @@
                 <FormInput v-model="form.city" :name="$t('City')" :error="form.errors.city" :type="'text'" :class="'sm:col-span-3'"/>
                 <FormInput v-model="form.state" :name="$t('State')" :error="form.errors.state" :type="'text'" :class="'sm:col-span-3'"/>
                 <FormInput v-model="form.zip" :name="$t('Zip code')" :error="form.errors.zip" :type="'text'" :class="'sm:col-span-3'"/>
+       
                 <FormInput v-model="form.country" :name="$t('Country')" :error="form.errors.country" :type="'text'" :class="'sm:col-span-3'"/>
+                <!-- <FormSelect v-model="form.country" :name="$t('Country')" :error="form.errors.country" :options="props.countries?.map(country => ({ value: country.id, label: country.name }))" :type="'text'" :class="'sm:col-span-3'"/> -->
             </div>
-            <div v-if="locationSettings === 'after' && props.fields.length > 0">
-                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2 mb-8 pt-4 border-t">
-                    <div v-for="(input, index) in props.fields" :key="index" :class="input.type != 'input' ? 'sm:col-span-2' : 'sm:col-span-1'">
-                        <FormInput v-if="input.type === 'input'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :type="input.value" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormTextArea v-if="input.type === 'textarea'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormSelect v-if="input.type === 'select'" v-model="form.metadata[input.name]" :name="input.name" :options="transformOptions(input.value)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                        <FormCheckbox v-if="input.type === 'checkbox'" v-model="form.metadata[input.name]" :name="input.name" :label="input.name" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
-                    </div>
+            <div v-if="locationSettings === 'after'" class="grid gap-x-6 gap-y-4 sm:grid-cols-2 mb-8 pt-4 border-t">
+                <div v-for="(input, index) in props.fields" :key="index" :class="input.type != 'input' ? 'sm:col-span-2' : 'sm:col-span-1'">
+                    <FormInput v-if="input.type === 'input'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :type="input.value" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormTextArea v-if="input.type === 'textarea'" v-model="form.metadata[input.name]" :name="input.name" :label="$t(input.name)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormSelect v-if="input.type === 'select'" v-model="form.metadata[input.name]" :name="input.name" :options="transformOptions(input.value)" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
+                    <FormCheckbox v-if="input.type === 'checkbox'" v-model="form.metadata[input.name]" :name="input.name" :label="input.name" :class="'sm:col-span-2'" :required="input.required === 1 ? true : false"/>
                 </div>
             </div>
             <div class="mt-4 mb-10 pb-10 flex">

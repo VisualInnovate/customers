@@ -15,6 +15,7 @@
     import Dropdown from '@/Components/Dropdown.vue';
     import DropdownItemGroup from '@/Components/DropdownItemGroup.vue';
     import DropdownItem from '@/Components/DropdownItem.vue';
+
     const props = defineProps({
         rows: {
             type: Object,
@@ -31,13 +32,6 @@
 
     const deleteAction = (key) => {
         form.delete('/campaigns/' + key);
-    }
-        const reschedule = (uuid) => {
-
-        router.visit(`campaigns/${uuid}/reschedule-failed/`, {
-            method: 'post',
-           
-        })
     }
     
     const params = ref({
@@ -151,11 +145,6 @@
                         {{ item.status }}
                     </Link>
                 </TableBodyRowItem>
-                 <TableBodyRowItem>
-                    <Link :href="'/campaigns/' + item.uuid" class="flex items-center w-full capitalize">
-                        {{ item.status }}
-                    </Link>
-                </TableBodyRowItem>
                 <TableBodyRowItem :position="'last'">
                     <Dropdown :align="'right'" class="mt-2">
                         <button class="inline-flex w-full justify-center rounded-md text-sm font-medium text-black hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
@@ -168,7 +157,6 @@
                         <template #items>
                             <DropdownItemGroup>
                                 <DropdownItem :href="'/campaigns/' + item.uuid">{{ $t('View') }}</DropdownItem>
-                                <DropdownItem :href="`/campaigns/${item.uuid}/reschedule-failed`">{{ $t('reschedule') }}</DropdownItem>
                                 <DropdownItem as="button" @click="openAlert(item.uuid)">{{ $t('Delete') }}</DropdownItem>
                             </DropdownItemGroup>
                         </template>

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Addon;
 use App\Models\User;
 use App\Models\Setting;
 use App\Rules\Recaptcha;
@@ -51,7 +50,7 @@ class LoginRequest extends FormRequest
         ];
 
         // Check if recaptcha_active is 1, then add recaptcha_response rule
-        if (Addon::where('name', 'Google Recaptcha')->first()->is_active === '1') {
+        if (Setting::getValueByKey('recaptcha_active') === '1') {
             $rules['recaptcha_response'] = ['required', new Recaptcha];
         }
 

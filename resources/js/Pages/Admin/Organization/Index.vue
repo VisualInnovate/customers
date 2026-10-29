@@ -10,7 +10,7 @@
                     </p>
                 </div>
                 <div>
-                    <Link href="/admin/organizations/create" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add organization') }}</Link>
+                    <Link href="/admin/organizations/create" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add organization') }}</Link>
                 </div>
             </div>
             <OrganizationTable :rows="props.rows" :filters="props.filters" :type="'user'"/>

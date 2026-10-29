@@ -1,5 +1,5 @@
 <template>
-    <SettingLayout :modules="props.modules">
+    <SettingLayout>
         <div class="md:h-[90vh]">
             <div class="flex justify-center items-center mb-8">
                 <form @submit.prevent="submitForm2()" class="md:w-[60em]">
@@ -73,7 +73,7 @@
                                     <span>{{ $t('Specify the name of your business/organization') }}</span>
                                 </div>
                             </div>
-                            <div class="w-[60%] flex justify-end">
+                            <div class="w-[60%]">
                                 <FormToggleSwitch v-model="form2.enable_sound_notification" />
                             </div>
                         </div>
@@ -94,66 +94,6 @@
                                     <svg @click="increaseVolume()" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 13.857v-3.714a2 2 0 0 1 2-2h2.9a1 1 0 0 0 .55-.165l6-3.956a1 1 0 0 1 1.55.835v14.286a1 1 0 0 1-1.55.835l-6-3.956a1 1 0 0 0-.55-.165H3a2 2 0 0 1-2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 7.5S19 9 19 11.5s-1.5 4-1.5 4m3-11S23 7 23 11.5s-2.5 7-2.5 7"/></g></svg>
                                 </div>
                                 <audio ref="audioPlayer"></audio>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border border-slate-200 rounded-lg py-2 text-sm mb-4">
-                        <div class="px-4 pt-2 pb-4">
-                            <h2 class="text-[17px]">{{ $t('Failed Message Retry Settings (Campaigns)') }}</h2>
-                            <span class="flex items-center mt-1">
-                                <svg class="mr-2" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                {{ $t('Configure the intervals at which failed campaign messages will be retried.') }}
-                            </span>
-                        </div>
-                        <div class="flex space-x-10 w-full px-4 py-6" :class="form2.enable_campaign_resend === false ? '' : 'border-b'">
-                            <div class="w-[80%]">
-                                <span class="text-slate-600">{{ $t('Enable campaign resend feature') }}</span>
-                                <div class="text-xs text-slate-700 flex items-center">
-                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                    <span>{{ $t('If active, failed messages in campaigns will be retried according to your set intervals') }}</span>
-                                </div>
-                            </div>
-                            <div class="w-[20%] flex justify-end">
-                                <FormToggleSwitch v-model="form2.enable_campaign_resend" />
-                            </div>
-                        </div>
-                        <div v-if="form2.enable_campaign_resend === true" class="flex space-x-10 w-full px-4 py-6 border-b">
-                            <div class="w-[60%]">
-                                <span class="text-slate-600">{{ $t('Retry Intervals (in hours)') }}</span>
-                                <div class="text-xs text-slate-700 flex items-center">
-                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                    <span>{{ $t('Set retry intervals in hours') }}</span>
-                                </div>
-                            </div>
-                            <div class="w-[40%] justify-end">
-                                <div class="flex space-x-2">
-                                    <FormInput v-for="(interval, index) in form2.resend_intervals" v-model.number="form2.resend_intervals[index]" :error="''" :name="''" :type="'number'" :min="'1'" :class="'w-24'"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div v-if="form2.enable_campaign_resend === true" class="flex space-x-10 w-full px-4 py-6" :class="form2.move_failed_contacts_to_group === false ? '' : 'border-b'">
-                            <div class="w-[80%]">
-                                <span class="text-slate-600">{{ $t('Move failed contacts to a group') }}</span>
-                                <div class="text-xs text-slate-700 flex items-center">
-                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                    <span>{{ $t('If enabled, failed contacts will be moved to a selected group after all retry attempts.') }}</span>
-                                </div>
-                            </div>
-                            <div class="w-[20%] flex justify-end">
-                                <FormToggleSwitch v-model="form2.move_failed_contacts_to_group" />
-                            </div>
-                        </div>
-                        <div v-if="form2.enable_campaign_resend === true && form2.move_failed_contacts_to_group === true" class="flex space-x-10 w-full px-4 py-6">
-                            <div class="w-[60%]">
-                                <span class="text-slate-600">{{ $t('Failed contacts groups') }}</span>
-                                <div class="text-xs text-slate-700 flex items-center">
-                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v5m0 5a9 9 0 1 1 0-18a9 9 0 0 1 0 18Zm.05-13v.1h-.1V8h.1Z"/></svg>
-                                    <span>{{ $t('After the three retry attempts, contacts will be moved to this group.') }}</span>
-                                </div>
-                            </div>
-                            <div class="w-[40%] ml-auto">
-                                <FormSelect v-model="form2.failed_campaign_group" :name="''" :error="form2.errors.failed_campaign_group" :options="contactGroupOptions()" :type="'text'" :class="'sm:col-span-6'"/>
                             </div>
                         </div>
                     </div>
@@ -186,7 +126,7 @@
     import { trans } from 'laravel-vue-i18n';
     import { router, useForm } from "@inertiajs/vue3";
 
-    const props = defineProps(['contactGroups', 'settings', 'timezones', 'modules', 'organization', 'countries', 'sounds']);
+    const props = defineProps({ settings: Object, timezones: Array, organization: Array, countries: Array, sounds: Array });
     const statusView = ref(false);
     const config = ref(props.settings.metadata);
     const settings = ref(config.value ? JSON.parse(config.value) : null);
@@ -210,18 +150,12 @@
         playSound(newValue);
     };
 
-    const playSound = (fileUrl) => {
-        audioPlayer.value.src = fileUrl;
-        audioPlayer.value.volume = form2.volume;
-        audioPlayer.value.play();
-    };
-
-    const contactGroupOptions = () => {
-        return props.contactGroups.map((option) => ({
-            value: option.uuid,
-            label: option.name,
-        }));
-    };
+                const playSound = (fileUrl) => {
+                if (!fileUrl) return; // Handle cases with no sound selected
+                audioPlayer.value.src = fileUrl;
+                audioPlayer.value.volume = form2.volume;
+                audioPlayer.value.play();
+            };
 
     const getAddressDetail = (value, key) => {
         if(value){
@@ -243,10 +177,6 @@
         enable_sound_notification: settings.value && settings.value.notifications ? settings.value.notifications.enable_sound : false,
         volume: settings.value && settings.value.notifications ? settings.value.notifications.volume : 1,
         tone: settings.value && settings.value.notifications ? settings.value.notifications.tone : null,
-        enable_campaign_resend: settings.value && settings.value.campaigns?.enable_resend ? settings.value.campaigns?.enable_resend : false,
-        move_failed_contacts_to_group: settings.value && settings.value?.campaigns?.move_failed_contacts_to_group ? settings.value?.campaigns?.move_failed_contacts_to_group : false,
-        resend_intervals: settings?.value?.campaigns?.resend_intervals ?? [1, 3, 6],
-        failed_campaign_group: settings.value && settings.value?.campaigns?.failed_campaign_group ? settings.value.campaigns?.failed_campaign_group : null,
     });
 
     const capitalizeString = (string) => {

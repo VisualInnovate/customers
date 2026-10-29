@@ -34,8 +34,4 @@ class CampaignLog extends Model {
     public function chat(){
         return $this->belongsTo(Chat::class, 'chat_id', 'id');
     }
-
-    public function retries(){
-        return $this->hasMany(CampaignLogRetry::class);
-    }
 }

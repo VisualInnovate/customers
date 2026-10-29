@@ -1,3 +1,4 @@
+// useAlertModal.js
 import { ref } from 'vue';
 
 export function useAlertModal() {
@@ -9,19 +10,13 @@ export function useAlertModal() {
     selectedItem.value = key;
   }
 
-  async function confirmAlert(action) {
+  async function confirmAlert(deleteAction) {
     try {
       isOpenAlert.value = false;
-      await action(selectedItem.value);
+      await deleteAction(selectedItem.value);
     } catch (error) {
       // Handle error
-      console.error(error);
     }
-    selectedItem.value = null;
-  }
-
-  function closeAlert() {
-    isOpenAlert.value = false;
     selectedItem.value = null;
   }
 
@@ -30,6 +25,5 @@ export function useAlertModal() {
     selectedItem,
     openAlert,
     confirmAlert,
-    closeAlert,
   };
 }

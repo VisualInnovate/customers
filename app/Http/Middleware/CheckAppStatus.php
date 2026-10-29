@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 use Str;
@@ -70,7 +69,7 @@ class CheckAppStatus
     {
         $file = json_decode(file_get_contents(storage_path('installed')));
 
-        if(!isset($file->version) || $file->version != Config::get('version.version')){
+        if(!isset($file->version) || $file->version != '2.3'){
             return false;
         } else {
             return true;

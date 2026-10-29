@@ -1,5 +1,5 @@
 <template>
-    <div :class="rtlClass">
+    <div>
         <div class="flex items-center bg-secondary/70 h-8 px-5 md:px-10 lg:px-20 2xl:px-60">
             <div class="text-sm text-white">
                 <div class="truncate w-[20em] md:w-full flex items-center gap-x-1">
@@ -322,39 +322,13 @@
                                                 </span>
                                                 <h3>{{ getDetail(item?.metadata, 'team_limit') == '-1' ? $t('Unlimited') : getDetail(item?.metadata, 'team_limit') }} {{ $t('Users') }}</h3>
                                             </div>
-                                            <div v-for="(value, key) in filteredAddons(item)" class="flex items-center text-gray-600 gap-3">
-                                                <span>
-                                                    <svg v-if="value == true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                                    <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                                </span>
-                                                <h3>{{ key }}</h3>
-                                            </div>
-                                            <div v-if="props.enable_ai_billing == 1" class="flex items-center text-gray-600 gap-3">
-                                                <span>
-                                                    <svg v-if="getDetail(item?.metadata, 'ai_text_response_limit') && filteredAddons(item)['AI Assistant']" xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                                    <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                                </span>
-                                                <h3>
-                                                    <span v-if="filteredAddons(item)['AI Assistant']">{{ getDetail(item?.metadata, 'ai_text_response_limit') == '-1' ? $t('Unlimited') : getDetail(item?.metadata, 'ai_text_response_limit') }}</span>
-                                                    {{ $t('AI Text Response Limit') }}
-                                                </h3>
-                                            </div>
-                                            <div v-if="props.enable_ai_billing == 1" class="flex items-center text-gray-600 gap-3">
-                                                <span>
-                                                    <svg v-if="getDetail(item?.metadata, 'ai_audio_response_limit') && filteredAddons(item)['AI Assistant']" xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                                    <svg v-else class="text-red-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 26 26"><g fill="currentColor"><path d="M10.172 17.243a1 1 0 1 1-1.415-1.415l7.071-7.07a1 1 0 1 1 1.415 1.414z"/><path d="M8.757 10.172a1 1 0 0 1 1.415-1.415l7.07 7.071a1 1 0 1 1-1.414 1.415z"/><path fill-rule="evenodd" d="M13 24c6.075 0 11-4.925 11-11S19.075 2 13 2S2 6.925 2 13s4.925 11 11 11m0 2c7.18 0 13-5.82 13-13S20.18 0 13 0S0 5.82 0 13s5.82 13 13 13" clip-rule="evenodd"/></g></svg>
-                                                </span>
-                                                <h3>
-                                                    <span v-if="filteredAddons(item)['AI Assistant']">{{ getDetail(item?.metadata, 'ai_audio_response_limit') == '-1' ? $t('Unlimited') : getDetail(item?.metadata, 'ai_audio_response_limit') }}</span>
-                                                    {{ $t('AI Audio Response Limit') }}
-                                                </h3>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </section>
@@ -523,9 +497,8 @@
     import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
     import { Link } from "@inertiajs/vue3";
     import LangToggle from '@/Components/LangToggle.vue';
-    import { useRtl } from '@/Composables/useRtl';
 
-    const props = defineProps(['addons', 'enable_ai_billing', 'faqs', 'plans', 'reviews', 'companyConfig', 'languages', 'currentLanguage', 'currency', 'pages']);
+    const props = defineProps({ faqs: Object, plans: Object, reviews: Object, companyConfig: Object, languages: Object, currentLanguage:String, currency: String, pages: Object });
 
     const currentYear = new Date().getFullYear();
     const facebookUrl = ref(null);
@@ -533,7 +506,6 @@
     const instagramUrl = ref(null);
     const slackUrl = ref(null);
     const linkedinUrl = ref(null);
-    const { rtlClass, isRtl } = useRtl();
 
     const parseSocials = () => {
         try {
@@ -557,21 +529,6 @@
             return null;
         }
     }
-
-    const filteredAddons = (item) => {
-        const addons = JSON.parse(item.metadata)['addons'];
-
-        if (!addons || typeof addons !== 'object') {
-            return {}; // Return an empty object if addons is not valid
-        }
-        
-        return Object.entries(props.addons).reduce((acc, [key, value]) => {
-            if(value === 1 && addons.hasOwnProperty(key)){
-                acc[key] = addons[key];
-            }
-            return acc;
-        }, {});
-    };
 
     const formattedName = computed(() => {
         return (value) => {

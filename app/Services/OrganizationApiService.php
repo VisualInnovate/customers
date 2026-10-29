@@ -12,10 +12,6 @@ class OrganizationApiService
     {
         OrganizationApiKey::create([
             'organization_id' => session()->get('current_organization'),
-            'name' => $request->name,
-            'expire_at' => $request->expire_at ?? null,
-            'limit' => $request->limit ?? null,
-            'usage' => 0,
             'token' => Str::random(40)
         ]);
     }

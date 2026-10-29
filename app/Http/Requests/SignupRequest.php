@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Addon;
 use App\Models\Setting;
 use App\Rules\Recaptcha;
 use App\Rules\UniqueEmail;
@@ -38,15 +37,6 @@ class SignupRequest extends FormRequest
             if ($this->has('organization_name')) {
                 $rules['organization_name'] = 'required';
             }
-
-            if ($this->has('phone')) {
-                $rules['phone'] = [
-                    'required',
-                    'string',
-                    'max:255',
-                    'phone:AUTO',
-                ];
-            }
         }
 
         // Only require password if it exists in the request
@@ -55,7 +45,7 @@ class SignupRequest extends FormRequest
         }
 
         // Check if recaptcha_active is 1, then add recaptcha_response rule
-        if (Addon::where('name', 'Google Recaptcha')->first()->is_active === '1') {
+        if (Setting::getValueByKey('recaptcha_active') === '1') {
             $rules['recaptcha_response'] = ['required', new Recaptcha];
         }
 

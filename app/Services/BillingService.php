@@ -9,7 +9,7 @@ use App\Models\BillingPayment;
 use App\Models\BillingTransaction;
 use App\Models\Organization;
 use App\Services\SubscriptionService;
-use Illuminate\Support\Facades\DB;
+use DB;
 
 class BillingService
 {

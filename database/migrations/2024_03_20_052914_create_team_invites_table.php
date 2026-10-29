@@ -17,7 +17,7 @@ class CreateTeamInvitesTable extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('organization_id');
             $table->string('email', 128);
-            $table->string('code');
+            $table->string('code', 255);
             $table->unsignedBigInteger('invited_by');
             $table->timestamp('expire_at')->useCurrent();
 

@@ -11,7 +11,7 @@
     
     const props = defineProps(['contact', 'fields', 'locationSettings']);
     const contact = ref(props.contact);
-    const metadata = (props.contact.metadata !== null && props.contact.metadata !== '') ? JSON.parse(props.contact.metadata) : {};
+    const metadata = (props.contact?.metadata !== null && props.contact?.metadata !== '') ? JSON.parse(props?.contact?.metadata) : {};
     const isOpenModal = ref(false);
     const isLoading = ref(false);
     const notes = ref(contact.notes);
@@ -19,7 +19,12 @@
     watchEffect(() => {
         contact.value = props.contact;
     });
-
+    const handleContact = () => {
+        router.visit('/template/message/chat', {
+            method: 'get',
+            data: '',
+        })
+    } 
     const favorite = async() => {
         contact.value.is_favorite = !contact.value.is_favorite;
 
@@ -57,7 +62,7 @@
     }
 </script>
 <template>
-    <div class="overflow-y-auto h-screen w-full">
+    <div class="h-screen w-full">
         <div class="pb-6 border-b">
             <div class="flex justify-center w-full">
                 <div class="rounded-full p-1">
@@ -91,7 +96,8 @@
                         <template #items>
                             <DropdownItemGroup>
                                 <!--<DropdownItem as="button" @click="openModal('edit')">Edit Contact</DropdownItem>-->
-                                <DropdownItem as="button" @click="deleteRow()">{{ $t('Delete') }}</DropdownItem>
+                                <!-- <DropdownItem as="button" @click="deleteRow()">{{ $t('Delete') }}</DropdownItem>-->
+                                <DropdownItem as="button" @click="handleContact()">{{ $t('Send templates') }}</DropdownItem>
                             </DropdownItemGroup>
                         </template>
                     </Dropdown>
@@ -171,7 +177,7 @@
                 </div>
             </div>
         </div>
-        <div class="border-t py-4 px-4 space-y-1">
+        <div class="border-t  px-4 space-y-1">
             <div class="flex">
                 <div class="mb-3">
                     <h4 class="mb-0">Notes</h4>

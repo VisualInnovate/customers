@@ -4,8 +4,6 @@ namespace App\Services;
 
 use App\Events\NewChatEvent;
 use App\Http\Resources\ContactResource;
-use App\Helpers\CustomHelper;
-use App\Helpers\UnreadCountHelper;
 use App\Models\Addon;
 use App\Models\Chat;
 use App\Models\ChatLog;
@@ -16,13 +14,13 @@ use App\Models\Contact;
 use App\Models\ContactField;
 use App\Models\ContactGroup;
 use App\Models\Organization;
+use App\Models\OrganizationIntegration;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Models\Template;
 use App\Services\SubscriptionService;
 use App\Services\WhatsappService;
 use App\Traits\TemplateTrait;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -33,112 +31,104 @@ use Inertia\Inertia;
 use Validator;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Pagination\LengthAwarePaginator;
+use OrganizationModules\Instagram\App\Http\Services\InstagramService;
+use OrganizationModules\Instagram\App\Services\InstagramService as ServicesInstagramService;
 
 class ChatService
 {
     use TemplateTrait;
 
-    private WhatsappService $whatsappService;
-    private ?Organization $organization;
+    private $whatsappService;
+    private $instagramService;
+    private $organizationId;
 
     public function __construct($organizationId)
     {
-        // Use the singleton organization instance to avoid repeated queries
-        $this->organization = current_organization();
-
-        // Fallback: if singleton doesn't match or isn't loaded, load it
-        if (!$this->organization || $this->organization->id !== $organizationId) {
-            $this->organization = Organization::find($organizationId);
-        }
-
+        $this->organizationId = $organizationId;
         $this->initializeWhatsappService();
+        $this->initializeInstagramService();
     }
 
     private function initializeWhatsappService()
     {
-        $config = $this->organization->metadata;
+        $config = Organization::where('id', $this->organizationId)->first()->metadata;
         $config = $config ? json_decode($config, true) : [];
 
         $accessToken = $config['whatsapp']['access_token'] ?? null;
-        $apiVersion = config('graph.api_version');
+        $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
         $appId = $config['whatsapp']['app_id'] ?? null;
         $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
         $wabaId = $config['whatsapp']['waba_id'] ?? null;
 
-        $this->whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $this->organization->id);
+        $this->whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $this->organizationId);
     }
 
-    public function getChatList($request, $uuid = null, $searchTerm = null)
+    private function initializeInstagramService()
+    {
+        $integration = OrganizationIntegration::where('organization_id', $this->organizationId)->where('name', 'instagram')->first();
+
+        if (!$integration) {
+            return;
+        }
+
+        $config = $integration && is_string($integration?->metadata)
+            ? json_decode($integration?->metadata, true)
+            : (is_array($integration?->metadata) ? $integration?->metadata : []);
+
+        $accessToken = $config['page_access_token'] ?? null;
+        $pageId = $config['page_id'] ?? null;
+
+        $this->instagramService = new ServicesInstagramService($accessToken, $pageId, $this->organizationId);
+    }
+
+
+    public function getChatList($request, $uuid = null, $searchTerm = null, $readStatus = null, $channel = null)
     {
         $role = auth()->user()->teams[0]->role;
-        $config = $this->organization;
-        $agents = Team::where('organization_id', $this->organization->id)->get();
-        $ticketState = $request->status ?? 'all';
+        $contact = new Contact;
+        $unassigned = ChatTicket::where('assigned_to', NULL)->count();
+        $closedCount = ChatTicket::where('status', 'closed')->count();
+        $closedCount = ChatTicket::where('status', 'open')->count();
+        $allCount = ChatTicket::count();
+        $config = Organization::where('id', $this->organizationId)->first();
+        $agents = Team::where('organization_id', $this->organizationId)->get();
+        $ticketState = $request->status == null ? 'all' : $request->status;
         $sortDirection = $request->session()->get('chat_sort_direction') ?? 'desc';
         $allowAgentsToViewAllChats = true;
         $ticketingActive = false;
-        $is_app_onboarding = false;
-        $aimodule = CustomHelper::isModuleEnabled('AI Assistant');
-        $settings = null;
+        $aiAssistantAddon = Addon::where('name', 'AI Assistant')->first();
+        $aiAssistantSetting = Setting::where('key', 'ai_assistant')->first();
+        $aimodule = $aiAssistantAddon && $aiAssistantAddon->status && $aiAssistantSetting && $aiAssistantSetting->value == 1;
 
         //Check if tickets module has been enabled
-        if($config->metadata != NULL){
+        if ($config->metadata != NULL) {
             $settings = json_decode($config->metadata);
 
-            if(isset($settings->tickets) && $settings->tickets->active === true){
+            if (isset($settings->tickets) && $settings->tickets->active === true) {
                 $ticketingActive = true;
 
                 //Check for chats that don't have corresponding chat ticket rows
-                // Use a more efficient query to check missing tickets
-                $contactsWithoutTickets = DB::table('contacts')
-                    ->leftJoin('chat_tickets', 'contacts.id', '=', 'chat_tickets.contact_id')
-                    ->whereNull('chat_tickets.id')
-                    ->where('contacts.organization_id', $this->organization->id)
-                    ->whereNotNull('contacts.latest_chat_created_at')
-                    ->whereNull('contacts.deleted_at')
-                    ->select('contacts.id')
-                    ->get();
+                $contacts = $contact->contactsWithChats($this->organizationId, NULL);
 
-                if ($contactsWithoutTickets->isNotEmpty()) {
-                    $ticketsToCreate = [];
-                    $now = now();
-
-                    foreach($contactsWithoutTickets as $contact){
-                        $ticketsToCreate[] = [
-                            'contact_id' => $contact->id,
+                foreach ($contacts as $contact) {
+                    ChatTicket::firstOrCreate(
+                        ['contact_id' => $contact->id],
+                        [
                             'assigned_to' => null,
                             'status' => 'open',
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
-                    }
-
-                    // Bulk insert for better performance
-                    ChatTicket::insert($ticketsToCreate);
+                            'updated_at' => now(),
+                        ]
+                    );
                 }
 
                 //Check if agents can view all chats
                 $allowAgentsToViewAllChats = $settings->tickets->allow_agents_to_view_all_chats;
             }
-
-            $is_app_onboarding = $settings?->whatsapp?->is_business_app_onboarding ?? false;
         }
 
-        // Retrieve the list of contacts with chats (includes count in pagination object)
-        $contactModel = new Contact;
-        $contacts = $contactModel->contactsWithChats(
-            $this->organization->id,
-            $searchTerm,
-            $ticketingActive,
-            $ticketState,
-            $sortDirection,
-            $role,
-            $allowAgentsToViewAllChats
-        );
-
-        // Get count from pagination total instead of separate query
-        $rowCount = $contacts->total();
-
+        // Retrieve the list of contacts with chats
+        $contacts = $contact->contactsWithChats($this->organizationId, $searchTerm, $ticketingActive, $ticketState, $sortDirection, $role, $allowAgentsToViewAllChats, $readStatus, $channel);
+        $rowCount = $contact->contactsWithChatsCount($this->organizationId, $searchTerm, $ticketingActive, $ticketState, $sortDirection, $role, $allowAgentsToViewAllChats, $readStatus, $channel);
         $pusherSettings = Setting::whereIn('key', [
             'pusher_app_id',
             'pusher_app_key',
@@ -146,82 +136,101 @@ class ChatService
             'pusher_app_cluster',
         ])->pluck('value', 'key')->toArray();
 
-        // Use cached templates instead of querying database
-        $messageTemplates = \App\Services\TemplateCacheService::getApproved($this->organization->id);
+        $perPage = 10; // Number of items per page
+        $totalContacts = count($contacts); // Total number of contacts
+        $messageTemplates = Template::where('organization_id', $this->organizationId)
+            ->where('deleted_at', null)
+            ->where('status', 'APPROVED')
+            ->get();
 
         if ($uuid !== null) {
-            $contact = Contact::with(['lastChat', 'lastInboundChat', 'notes', 'contactGroups'])
-                ->where('uuid', $uuid)
-                ->first();
-            
-            $ticket = ChatTicket::with('user')
-                ->where('contact_id', $contact->id)
-                ->first();
+            // If $uuid is provided, get the chat thread for a specific contact
+            $contact = Contact::withTrashed()->with(['lastChat', 'lastPinnedChat', 'lastChat.user', 'lastInboundChat', 'notes', 'contactGroup'])->where('uuid', $uuid)->first();
 
-            $initialMessages = $this->getChatMessages($contact->id);
+            if (!$contact) {
+                // Handle missing contact
+                if (request()->expectsJson()) {
+                    return response()->json(['error' => 'Contact not found.'], 404);
+                }
 
-            // Mark messages as read
-            $updatedCount = Chat::where('contact_id', $contact->id)
+                return redirect()->back()->withErrors(['error' => 'Contact not found.']);
+            }
+            $ticket = ChatTicket::with('user')->where('contact_id', $contact?->id)->first();
+            $chatLogs = ChatLog::where('contact_id', $contact?->id)->where('deleted_at', null)->get();
+            $chats = [];
+
+            foreach ($chatLogs as $chatLog) {
+                $relatedEntity = $chatLog->getRelatedEntitiesWithOrgId($this->organizationId);
+                if ($relatedEntity) {
+                    $chats[] = array(
+                        [
+                            'type' => $chatLog->entity_type,
+                            'value' => $relatedEntity
+                        ]
+                    );
+                }
+            }
+
+            //Mark all chats as read
+            Chat::where('contact_id', $contact?->id)
                 ->where('type', 'inbound')
                 ->whereNull('deleted_at')
                 ->where('is_read', 0)
-                ->update(['is_read' => 1]);
+                ->update([
+                    'is_read' => 1,
+                    'status' => 'read'
+                ]);
 
-            // Reset unread count since all messages are now marked as read
-            if ($updatedCount > 0) {
-                UnreadCountHelper::resetUnreadCount($contact->id);
-            }
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'result' => ContactResource::collection($contacts)->response()->getData(),
+                ], 200);
+            } else {
+                //To ensure the unread message counter is updated
+                $unreadMessages = Chat::where('organization_id', $this->organizationId)
+                    ->where('type', 'inbound')
+                    ->where('deleted_at', NULL)
+                    ->where('is_read', 0)
+                    ->count();
 
-//            if (request()->wantsJson()) {
-//                return response()->json([
-//                    'result' => ContactResource::collection($contacts)->response()->getData(),
-//                ], 200);
-//            } else {
                 return Inertia::render('User/Chat/Index', [
                     'title' => 'Chats',
                     'rows' => ContactResource::collection($contacts),
-                    'simpleForm' => CustomHelper::isModuleEnabled('AI Assistant') && optional(optional($settings)->ai)->ai_chat_form_active ? false : true,
                     'rowCount' => $rowCount,
                     'filters' => request()->all(),
                     'pusherSettings' => $pusherSettings,
-                    'organizationId' => $this->organization->id,
+                    'organizationId' => $this->organizationId,
                     'state' => app()->environment(),
                     'demoNumber' => env('DEMO_NUMBER'),
                     'settings' => $config,
-                    'isAppOnboarding' => $is_app_onboarding,
                     'templates' => $messageTemplates,
                     'status' => $request->status ?? 'all',
-                    'chatThread' => $initialMessages['messages'],
-                    'hasMoreMessages' => $initialMessages['hasMoreMessages'],
-                    'nextPage' => $initialMessages['nextPage'],
+                    'chatThread' => $chats,
                     'contact' => $contact,
-                    'fields' => ContactField::where('organization_id', $this->organization->id)->where('deleted_at', null)->get(),
+                    'fields' => ContactField::where('organization_id', $this->organizationId)->where('deleted_at', null)->get(),
                     'locationSettings' => $this->getLocationSettings(),
                     'ticket' => $ticket,
                     'agents' => $agents,
                     'addon' => $aimodule,
                     'chat_sort_direction' => $sortDirection,
-                    'isChatLimitReached' => SubscriptionService::isSubscriptionFeatureLimitReached($this->organization->id, 'message_limit')
+                    'unreadMessages' => $unreadMessages,
+                    'isChatLimitReached' => SubscriptionService::isSubscriptionFeatureLimitReached($this->organizationId, 'message_limit')
                 ]);
-//            }
+            }
         }
 
-        if (request()->has('fetch_json')) {
+        if (request()->expectsJson()) {
             return response()->json([
                 'result' => ContactResource::collection($contacts)->response()->getData(),
-            ]);
-        }
-//        } else {
-            $settings = json_decode($config->metadata);
-            
+            ], 200);
+        } else {
             return Inertia::render('User/Chat/Index', [
                 'title' => 'Chats',
                 'rows' => ContactResource::collection($contacts),
-                'simpleForm' => !CustomHelper::isModuleEnabled('AI Assistant') || empty($settings->ai->ai_chat_form_active),
                 'rowCount' => $rowCount,
                 'filters' => request()->all(),
                 'pusherSettings' => $pusherSettings,
-                'organizationId' => $this->organization->id,
+                'organizationId' => $this->organizationId,
                 'state' => app()->environment(),
                 'settings' => $config,
                 'templates' => $messageTemplates,
@@ -230,18 +239,19 @@ class ChatService
                 'addon' => $aimodule,
                 'ticket' => array(),
                 'chat_sort_direction' => $sortDirection,
-                'isChatLimitReached' => SubscriptionService::isSubscriptionFeatureLimitReached($this->organization->id, 'message_limit')
+                'isChatLimitReached' => SubscriptionService::isSubscriptionFeatureLimitReached($this->organizationId, 'message_limit')
             ]);
-//        }
+        }
     }
 
-    public function handleTicketAssignment($contactId){
-        $organizationId = $this->organization->id;
-        $settings = $this->organization;
+    public function handleTicketAssignment($contactId)
+    {
+        $organizationId = $this->organizationId;
+        $settings = Organization::where('id', $this->organizationId)->first();
         $settings = json_decode($settings->metadata);
 
         // Check if ticket functionality is active
-        if(isset($settings->tickets) && $settings->tickets->active === true){
+        if (isset($settings->tickets) && $settings->tickets->active === true) {
             $autoassignment = $settings->tickets->auto_assignment;
             $reassignOnReopen = $settings->tickets->reassign_reopened_chats;
 
@@ -249,20 +259,18 @@ class ChatService
             $ticket = ChatTicket::where('contact_id', $contactId)->first();
 
             DB::transaction(function () use ($reassignOnReopen, $autoassignment, $ticket, $contactId, $organizationId) {
-                if(!$ticket){
+                if (!$ticket) {
                     // Create a new ticket if it doesn't exist
-                    $ticket = New ChatTicket;
+                    $ticket = new ChatTicket;
                     $ticket->contact_id = $contactId;
                     $ticket->status = 'open';
                     $ticket->updated_at = now();
 
                     // Perform auto-assignment if enabled
-                    if($autoassignment){
+                    if ($autoassignment) {
                         // Find an agent with the least number of assigned tickets
                         $agent = Team::where('organization_id', $organizationId)
-                            ->withCount('tickets')
-                            ->whereNull('deleted_at')
-                            ->orderBy('tickets_count')->first();
+                            ->withCount('tickets')->orderBy('tickets_count')->first();
 
                         // Assign the ticket to the agent with the least number of assigned tickets
                         $ticket->assigned_to = $agent->user_id;
@@ -286,14 +294,11 @@ class ChatService
                     ]);
                 } else {
                     // Reopen the ticket if it's closed and reassignment on reopen is enabled
-                    if($ticket->status === 'closed'){
-                        if($reassignOnReopen){
-                            if($autoassignment){
+                    if ($ticket->status === 'closed') {
+                        if ($reassignOnReopen) {
+                            if ($autoassignment) {
                                 $agent = Team::where('organization_id', $organizationId)
-                                    ->withCount('tickets')
-                                    ->whereNull('deleted_at')
-                                    ->orderBy('tickets_count')
-                                    ->first();
+                                    ->withCount('tickets')->orderBy('tickets_count')->first();
 
                                 $ticket->assigned_to = $agent->user_id;
                             } else {
@@ -309,7 +314,7 @@ class ChatService
                             'description' => 'Conversation was moved from closed to open',
                             'created_at' => now()
                         ]);
-    
+
                         ChatLog::insert([
                             'contact_id' => $contactId,
                             'entity_type' => 'ticket',
@@ -324,61 +329,72 @@ class ChatService
 
     public function sendMessage(object $request)
     {
-        if($request->type === 'text'){
-            return $this->whatsappService->sendMessage($request->uuid, $request->message, auth()->user()->id,
-                replyToMessageId: $request->reply_to);
+        if ($request->type === 'text') {
+            if ($request->channel == 'instagram') {
+                Log::info('Sending message to channel: ' . $request->channel);
+                return $this->instagramService->sendInstagramMessage($request->uuid, $request->message, $request->type, replyToMessageId: $request->reply_to);
+            }
+            if ($request->channel == 'whatsapp') {
+                Log::info('Sending message to channel: ' . $request->channel);
+                return $this->whatsappService->sendMessage($request->uuid, $request->message, $request->type, replyToMessageId: $request->reply_to);
+            }
         } else {
             $storage = Setting::where('key', 'storage_system')->first()->value;
-            $fileName = $request->file('file')->getClientOriginalName();
+            $fileName = $request->file('file')?->getClientOriginalName() ?? rand(1000, 9999) . '.' . $request->file('file')?->getClientOriginalExtension();
             $fileContent = $request->file('file');
 
-            if($storage === 'local'){
+            if ($storage === 'local') {
                 $location = 'local';
                 $file = Storage::disk('local')->put('public', $fileContent);
                 $mediaFilePath = $file;
                 $mediaUrl = rtrim(config('app.url'), '/') . '/media/' . ltrim($mediaFilePath, '/');
-            } else if($storage === 'aws') {
+            } else if ($storage === 'aws') {
                 $location = 'amazon';
                 $file = $request->file('file');
-                $filePath = 'uploads/media/received/'  . $this->organization->id . '/' . $fileName;
-                $uploadedFile = $file->store('uploads/media/sent/' . $this->organization->id, 's3');
+                $filePath = 'uploads/media/received/' . $this->organizationId . '/' . $fileName;
+                $uploadedFile = $file->store('uploads/media/sent/' . $this->organizationId, 's3');
                 $mediaFilePath = Storage::disk('s3')->url($uploadedFile);
                 $mediaUrl = $mediaFilePath;
             }
-    
-            $this->whatsappService->sendMedia($request->uuid, $request->type, $fileName, $mediaFilePath, $mediaUrl, $location);
+
+            if ($request->channel == 'instagram') {
+                return $this->instagramService->sendInstagramMessage($request->uuid, $request->message, $request->type, $mediaUrl, replyToMessageId: $request->reply_to);
+            } else {
+                $this->whatsappService->sendMedia($request->uuid, $request->type, $fileName, $mediaFilePath, $mediaUrl, $location);
+            }
         }
     }
 
     public function sendTemplateMessage(object $request, $uuid)
     {
-        $template = template_by_uuid($request->template);
+        // Log::info('request: ' . json_encode(['data' => $request->all()]));
+        $template = Template::where('uuid', $request->template)->first();
         $contact = Contact::where('uuid', $uuid)->first();
         $mediaId = null;
 
-        if(in_array($request->header['format'], ['IMAGE', 'DOCUMENT', 'VIDEO'])){
+        if (in_array($request->header['format'], ['IMAGE', 'DOCUMENT', 'VIDEO'])) {
             $header = $request->header;
-            
+
             if ($request->header['parameters']) {
                 $metadata['header']['format'] = $header['format'];
                 $metadata['header']['parameters'] = [];
-        
+
                 foreach ($request->header['parameters'] as $key => $parameter) {
                     if ($parameter['selection'] === 'upload') {
                         $storage = Setting::where('key', 'storage_system')->first()->value;
                         $fileName = $parameter['value']->getClientOriginalName();
                         $fileContent = $parameter['value'];
 
-                        if($storage === 'local'){
+                        if ($storage === 'local') {
                             $file = Storage::disk('local')->put('public', $fileContent);
                             $mediaFilePath = $file;
-            
+
                             $mediaUrl = rtrim(config('app.url'), '/') . '/media/' . ltrim($mediaFilePath, '/');
-                        } else if($storage === 'aws') {
+                        } else if ($storage === 'aws') {
                             $file = $parameter['value'];
-                            $uploadedFile = $file->store('uploads/media/sent/' . $this->organization->id, 's3');
+                            $uploadedFile = $file->store('uploads/media/sent/' . $this->organizationId, 's3');
                             $mediaFilePath = Storage::disk('s3')->url($uploadedFile);
-            
+
                             $mediaUrl = $mediaFilePath;
                         }
 
@@ -397,13 +413,16 @@ class ChatService
 
                         $mediaId = $chatMedia->id;
                     } else {
-                        $mediaUrl = $parameter['value'];
+                        $mediaUrl = $template->media->path;
+                        $mediaId = $template->media->id;
+                        $mediaName = $template->media->name;
                     }
-        
+
                     $metadata['header']['parameters'][] = [
                         'type' => $parameter['type'],
                         'selection' => $parameter['selection'],
                         'value' => $mediaUrl,
+                        'name' => $mediaName,
                     ];
                 }
             }
@@ -417,9 +436,8 @@ class ChatService
         $metadata['media'] = $mediaId;
 
         //Build Template to send
-        $template = $this->buildTemplate($template->name, $template->language, json_decode(json_encode($metadata)), $contact);
-        
-        return $this->whatsappService->sendTemplateMessage($contact->uuid, $template, auth()->user()->id, NULL, $mediaId);
+        $finaltemplate = $this->buildTemplate($template->name, $template->language, json_decode(json_encode($metadata)), $contact);
+        return $this->whatsappService->sendTemplateMessage($contact->uuid, $finaltemplate, NULL, $mediaId);
     }
 
     public function clearMessage($uuid)
@@ -444,21 +462,22 @@ class ChatService
             'deleted_at' => now()
         ]);
 
-        $chat = Chat::with('contact','media')->where('id', $contact->lastChat->id)->first();
+        $chat = Chat::with('contact', 'media')->where('id', $contact->lastChat->id)->first();
 
         //event(new NewChatEvent($chat, $contact->organization_id));
     }
 
-    private function getContentTypeFromUrl($url) {
+    private function getContentTypeFromUrl($url)
+    {
         try {
             // Make a HEAD request to fetch headers only
             $response = Http::head($url);
-    
+
             // Check if the Content-Type header is present
             if ($response->hasHeader('Content-Type')) {
                 return $response->header('Content-Type');
             }
-    
+
             return null;
         } catch (\Exception $e) {
             // Log the error for debugging
@@ -467,20 +486,22 @@ class ChatService
         }
     }
 
-    private function getMediaSizeInBytesFromUrl($url) {
+    private function getMediaSizeInBytesFromUrl($url)
+    {
         $url = ltrim($url, '/');
         $imageContent = file_get_contents($url);
-    
+
         if ($imageContent !== false) {
             return strlen($imageContent);
         }
-    
+
         return null;
     }
 
-    private function getLocationSettings(){
+    private function getLocationSettings()
+    {
         // Retrieve the settings for the current organization
-        $settings = $this->organization;
+        $settings = Organization::where('id', $this->organizationId)->first();
 
         if ($settings) {
             // Decode the JSON metadata column into an associative array
@@ -500,32 +521,50 @@ class ChatService
         }
     }
 
-    public function getChatMessages($contactId, $page = 1, $perPage = 10)
+    public function toggleAction($request)
     {
-        $chatLogs = ChatLog::where('contact_id', $contactId)
-            ->where('deleted_at', null)
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage, ['*'], 'page', $page);
-
-        $chats = [];
-        foreach ($chatLogs as $chatLog) {
-            $relatedEntity = $chatLog->getRelatedEntitiesAttribute($this->organization->id);
-            if ($relatedEntity) {
-                $chatMsg = [
-                    'type' => $chatLog->entity_type,
-                    'value' => $relatedEntity
-                ];
-                if($chatLog->entity_type === 'chat' && $relatedEntity->metadata !== null){
-                    $chatMsg['replyTo'] = $relatedEntity->reply_to ?? null;
-                }
-                $chats[] = array($chatMsg);
-            }
+        $chat = Chat::find($request->chat_id);
+        if (!$chat) {
+            return response()->json(['message' => 'Chat not found'], 404);
         }
 
-        return [
-            'messages' => array_reverse($chats),
-            'hasMoreMessages' => $chatLogs->hasMorePages(),
-            'nextPage' => $chatLogs->currentPage() + 1
-        ];
+        if ($request->action === 'is_pinned') {
+            if (!$chat->is_pinned) {
+                $pinnedCount = Chat::where('contact_id', $chat->contact_id)
+                    ->where('is_pinned', true)
+                    ->count();
+
+                if ($pinnedCount >= 3) {
+                    return response()->json(['error', 'You can only pin up to 3 messages.'], 404);
+                }
+            }
+        }
+        if ($request->action === 'is_starred') {
+            $chat->is_starred = !$chat->is_starred;
+        }
+
+        if ($request->action === 'is_pinned') {
+            $chat->is_pinned = !$chat->is_pinned;
+        }
+
+        $chat->save();
+
+        return response()->json(['message' => ucfirst(str_replace('_', ' ', $request->action)) . ' updated successfully.']);
+    }
+
+    public function getPinnedChats($request)
+    {
+        return Chat::where('contact_id', $request->contact_id)
+            ->where('is_pinned', true)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    public function getStaredChats($request)
+    {
+        return Chat::where('contact_id', $request->contact_id)
+            ->where('is_starred', true)
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 }

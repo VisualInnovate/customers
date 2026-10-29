@@ -25,7 +25,7 @@ class StorePaymentGateway extends FormRequest
         $type = strtolower($this->route('payment_gateway'));
 
         $rules = [];
-
+ 
         if ($type == 'paypal') {
             $rules = [
                 'client_id' => 'required',
@@ -38,6 +38,19 @@ class StorePaymentGateway extends FormRequest
                 'publishable_key' => 'required',
                 'secret_key' => 'required',
                 'webhook_secret' => 'required',
+            ];
+        
+        // else if($type == 'hesabe') {
+        //     $rules = [
+        //         'merchant_code' => 'required',
+        //         'access_code' => 'required',
+        //         'secret_key' => 'required',
+        //         'iv_key' => 'required',
+        //     ];
+        } else if($type == 'tap') {
+            $rules = [
+                'secret_key' => 'required',
+                'public_key' => 'required',
             ];
         } else if($type == 'paystack' || $type == 'flutterwave') {
             $rules = [

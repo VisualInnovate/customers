@@ -48,7 +48,6 @@
                 <TableHeaderRowItem :position="'first'">{{ $t('Name') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Code') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Status') }}</TableHeaderRowItem>
-                <TableHeaderRowItem>{{ $t('Is RTL') }}</TableHeaderRowItem>
                 <TableHeaderRowItem :position="'last'"></TableHeaderRowItem>
             </TableHeaderRow>
         </TableHeader>
@@ -57,7 +56,6 @@
                 <TableBodyRowItem :position="'first'">{{ item.name }}</TableBodyRowItem>
                 <TableBodyRowItem>{{ item.code }}</TableBodyRowItem>
                 <TableBodyRowItem>{{ $t(capitalizeFirstLetter(item.status)) }}</TableBodyRowItem>
-                <TableBodyRowItem>{{ item.is_rtl == 1 ? $t('Yes') : $t('No')}}</TableBodyRowItem>
                 <TableBodyRowItem>
                     <span v-if="props.defaultLanguage == item.code" class="bg-slate-50 p-1 rounded-md text-[12px]">Default Language</span>
                 </TableBodyRowItem>

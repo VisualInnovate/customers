@@ -57,7 +57,7 @@ class FlutterwaveService
 
     public function handlePayment($amount, $planId = NULL)
     {
-        $currency = strtoupper(Setting::where('key', 'currency')->first()->value);
+        $currency = 'USD';
         $redirectUrl = url('payment/flutterwave');
 
         $user = User::where('id', auth()->user()->id)->first();

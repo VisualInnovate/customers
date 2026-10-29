@@ -12,7 +12,6 @@
     const isOpenModal = ref(props.modelValue);
     const fileName = ref(null);
     const progressStatus = ref(null);
-    const showFailedTable = ref(false);
 
     watch(() => props.modelValue, (newValue) => {
         isOpenModal.value = newValue;
@@ -63,15 +62,11 @@
             progressStatus.value = null;
         }, 500);
     }
-
-    function toggleFailedTable() {
-        showFailedTable.value = !showFailedTable.value;
-    }
 </script>
 <template>
     <!-- Import Modal-->
     <Modal :label="modalLabel" :isOpen="isOpenModal">
-        <div v-if="type === 'contact'" class="text-sm text-slate-600 mt-4">{{ $t('Upload a csv/xlsx to import your contact data. For the phone field ensure that you start with the contact\'s country code.') }}</div>
+        <div v-if="type === 'contact'" class="text-sm text-slate-600">{{ $t('Upload a csv/xlsx to import your contact data. For the phone field ensure that you start with the contact\'s country code.') }}</div>
         <div v-else class="text-sm text-slate-600">{{ $t('Upload a csv/xlsx to import your contact groups data.') }}</div>
         <div class="text-sm text-slate-600 underline flex mt-4 mb-6">
             <a :href="type === 'contact' ? '/contacts.xlsx' : '/contact-groups.xlsx'">{{ $t('Click here to download sample template') }}</a>
@@ -102,50 +97,35 @@
                 </div>
                 <div class="mt-4">
                     <div class="mt-2" v-if="progressStatus == 'complete'">
-                        <div v-if="flashResponse.import_summary.successful_imports" class="bg-green-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
+                        <div v-if="flashResponse.successfulImports" class="bg-green-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
                             <div class="mt-1 text-sm">
                                 <div class="text-green-800 flex items-center gap-x-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M14.25 8.75c-.5 2.5-2.385 4.854-5.03 5.38A6.25 6.25 0 0 1 3.373 3.798C5.187 1.8 8.25 1.25 10.75 2.25"/><path d="m5.75 7.75l2.5 2.5l6-6.5"/></g></svg>
-                                    {{ flashResponse.import_summary.successful_imports + '/' + flashResponse.import_summary.total_imports }} {{ $t('rows added successfully!') }}
+                                    {{ flashResponse.successfulImports + '/' + flashResponse.totalImports }} {{ $t('rows added successfully!') }}
                                 </div>
                             </div>
                         </div>
-                        <div v-if="flashResponse.import_summary.duplicate_entries" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
+                        <div v-if="flashResponse.failedNames" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
                             <div class="mt-1 text-sm">
                                 <div class="text-red-600 flex items-center gap-x-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M15.71 8.29a1 1 0 0 0-1.42 0L12 10.59l-2.29-2.3a1 1 0 0 0-1.42 1.42l2.3 2.29l-2.3 2.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0l2.29-2.3l2.29 2.3a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.42L13.41 12l2.3-2.29a1 1 0 0 0 0-1.42m3.36-3.36A10 10 0 1 0 4.93 19.07A10 10 0 1 0 19.07 4.93m-1.41 12.73A8 8 0 1 1 20 12a7.95 7.95 0 0 1-2.34 5.66"/></svg>
-                                    {{ flashResponse.import_summary.duplicate_entries }} duplicates found
+                                    {{ flashResponse.failedNames }} rows without first name
                                 </div>
                             </div>
                         </div>
-                        <div v-if="flashResponse.import_summary.invalid_format_entries" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
+                        <div v-if="flashResponse.failedDuplicates" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
                             <div class="mt-1 text-sm">
                                 <div class="text-red-600 flex items-center gap-x-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M15.71 8.29a1 1 0 0 0-1.42 0L12 10.59l-2.29-2.3a1 1 0 0 0-1.42 1.42l2.3 2.29l-2.3 2.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0l2.29-2.3l2.29 2.3a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.42L13.41 12l2.3-2.29a1 1 0 0 0 0-1.42m3.36-3.36A10 10 0 1 0 4.93 19.07A10 10 0 1 0 19.07 4.93m-1.41 12.73A8 8 0 1 1 20 12a7.95 7.95 0 0 1-2.34 5.66"/></svg>
-                                    {{ flashResponse.import_summary.invalid_format_entries }} formatting issues found
+                                    {{ flashResponse.failedDuplicates }} duplicates found
                                 </div>
                             </div>
                         </div>
-                        <div v-if="flashResponse.import_summary.failed_limit_entries" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
+                        <div v-if="flashResponse.failedFormats" class="bg-red-50 px-2 py-2 flex rounded-md justify-between items-center mb-1">
                             <div class="mt-1 text-sm">
                                 <div class="text-red-600 flex items-center gap-x-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M15.71 8.29a1 1 0 0 0-1.42 0L12 10.59l-2.29-2.3a1 1 0 0 0-1.42 1.42l2.3 2.29l-2.3 2.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0l2.29-2.3l2.29 2.3a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.42L13.41 12l2.3-2.29a1 1 0 0 0 0-1.42m3.36-3.36A10 10 0 1 0 4.93 19.07A10 10 0 1 0 19.07 4.93m-1.41 12.73A8 8 0 1 1 20 12a7.95 7.95 0 0 1-2.34 5.66"/></svg>
-                                    {{ flashResponse.import_summary.failed_limit_entries }} failed due to contact limit
-                                </div>
-                            </div>
-                        </div>
-                        <div v-if="flashResponse.import_summary.failed_rows_details && flashResponse.import_summary.failed_rows_details.length > 0">
-                            <div class="mt-2">
-                                <div class="bg-slate-50 text-sm grid grid-cols-2 p-1 py-2 rounded-md border-b-2 border-white">
-                                    <div class="col-1 pl-2">{{ $t('Row') }}</div>
-                                    <div class="col-1 flex justify-between items-center">
-                                        <span>{{ $t('Error') }}</span>
-                                        <button @click="toggleFailedTable" class="bg-primary text-white text-[11px] rounded px-2">{{ showFailedTable ? $t('Hide') : $t('Show') }}</button>
-                                    </div>
-                                </div>
-                                <div v-if="showFailedTable" class="bg-red-50 text-[12px] grid grid-cols-2 border-white border-r border-l border-b p-1 rounded-md" v-for="(item, index) in flashResponse.import_summary.failed_rows_details" :key="index">
-                                    <div class="col-1 pl-2">{{ item.row }}</div>
-                                    <div class="col-1">{{ item.error }}</div>
+                                    {{ flashResponse.failedFormats }} formatting issues found
                                 </div>
                             </div>
                         </div>

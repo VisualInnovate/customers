@@ -15,8 +15,8 @@ class CreateCouponsTable extends Migration
     {
         Schema::create('coupons', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('name');
-            $table->string('code')->unique();
+            $table->string('name', 255);
+            $table->string('code', 255)->unique();
             $table->decimal('percentage', 5, 2)->nullable();
             $table->integer('quantity')->nullable();
             $table->integer('quantity_redeemed')->nullable();

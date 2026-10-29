@@ -3,18 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use DB;
-use App\Http\Controllers\Controller as BaseController;
-use App\Http\Resources\PaymentGatewayResource;
-use App\Http\Requests\StorePaymentGateway;
-use App\Models\PaymentGateway;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule; 
-use Inertia\Inertia;
 use Helper;
 use Session;
 use Validator;
+use Inertia\Inertia;
+use Illuminate\Support\Str;
+use Hesabe\Payment\Payment; 
+use Illuminate\Http\Request;
+use App\Models\PaymentGateway;
+use Hesabe\Payment\HesabeCrypt;
+use Illuminate\Validation\Rule; 
+use Illuminate\Support\Facades\Redirect;
+use App\Http\Requests\StorePaymentGateway;
+use App\Http\Resources\PaymentGatewayResource;
+use App\Http\Controllers\Controller as BaseController;
 
 class PaymentGatewayController extends BaseController
 {
@@ -27,19 +29,22 @@ class PaymentGatewayController extends BaseController
     public function show($type)
     {
         $gateway = PaymentGateway::where('name', $type)->first();
+        if (empty($gateway)) {
+            return response()->json(['success' => false, 'data'=> []]);
+        }
         return response()->json(['success' => true, 'data'=> $gateway]);
     }
 
     public function update(StorePaymentGateway $request, $type){
-        if (env('APP_ENV') === 'demo') {
-            // Return a response indicating that the function is not allowed in demo environment
-            return Redirect::back()->with(
-                'status', [
-                    'type' => 'error', 
-                    'message' => __('Updating settings is not allowed in demo.')
-                ]
-            );
-        }
+        // if (env('APP_ENV') === 'demo') {
+        //     // Return a response indicating that the function is not allowed in demo environment
+        //     return Redirect::back()->with(
+        //         'status', [
+        //             'type' => 'error', 
+        //             'message' => __('Updating settings is not allowed in demo.')
+        //         ]
+        //     );
+        // }
 
         $metadata = [];
 
@@ -68,6 +73,25 @@ class PaymentGatewayController extends BaseController
                     'secret_key' => $request->secret_key,
                 ];
                 break;
+
+            // case 'hesabe':
+
+            //     $metadata = [
+            //         'merchant_code' => $request->merchant_code,
+            //         'access_code' => $request->access_code,
+            //         'secret_key' => $request->secret_key,
+            //         'iv_key' => $request->iv_key
+            //     ];
+            //     break;
+
+            case 'tap':
+
+                $metadata = [
+                    'secret_key' => $request->secret_key,
+                    'public_key' => $request->public_key,
+                ];
+                break;
+                
         }
 
         $method = PaymentGateway::where('name', '=', $type)->update([

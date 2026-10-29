@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\User;
 
-use App\Models\SubscriptionPlan;
-use App\Services\Payment\PaymentService;
 use DB;
 use App\Http\Controllers\Controller as BaseController;
 use App\Http\Requests\PaymentRequest;
@@ -17,6 +15,7 @@ use App\Resolvers\PaymentPlatformResolver;
 use App\Services\BillingService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Redirect;
 
@@ -25,7 +24,6 @@ class BillingController extends BaseController
     protected $billingService;
     protected $subscriptionService;
     protected $paymentPlatformResolver;
-    private PaymentService $paymentService;
 
     public function __construct()
     {
@@ -33,21 +31,16 @@ class BillingController extends BaseController
         $this->subscriptionService = new SubscriptionService();
         $this->paymentPlatformResolver = new PaymentPlatformResolver();
     }
-
-    public function getOrganizationId()
-    {
-        return session()->get('current_organization');
-    }
     
     public function index(Request $request){
-        $organizationId = $this->getOrganizationId();
-        $organization = Organization::where('id', $organizationId)->first();
-        $data['subscription'] = Subscription::with('plan')->where('organization_id', $organizationId)->first();
+        $organizationId = session()->get('current_organization');
+        $organization = Organization::where('id', $organizationId)?->first();
+        $data['subscription'] = Subscription::with('plan')->where('organization_id', $organizationId)?->first();
         $data['subscriptionIsActive'] = SubscriptionService::isSubscriptionActive($organizationId);
         $data['rows'] = $this->billingService->get($request, $organization->uuid);
         $data['filters'] = $request->all();
         $data['methods'] = $this->paymentMethods();
-        $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']->plan_id);
+        $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']?->plan_id);
         $data['title'] = __('Billing');
         $data['isPaymentLoading'] = false;
         $data['pusherSettings'] = Setting::whereIn('key', [
@@ -72,42 +65,27 @@ class BillingController extends BaseController
                     ]
                 );
             }
-        } else if($request->has('hostedpage')){
-            if (file_exists(base_path('modules/Pabbly/Services/PabblyService.php'))) {
-                $data['isPaymentLoading'] = true;
-
-                $pabblyService = new \Modules\Pabbly\Services\PabblyService();
-                $response = $pabblyService->subscribeToPlan($request->hostedpage);
-                $data = $response->getData();
-                
-                return redirect('/billing')->with(
-                    'status', [
-                        'type' => $response->status() === '200' ? 'success' : 'error', 
-                        'message' => $data->message
-                    ]
-                );
-            }
         }
 
         return Inertia::render('User/Billing/Index', $data);
     }
+
     public function pay(PaymentRequest $request){
-        $this->paymentService = new PaymentService($request['method']);
-        $plan = SubscriptionPlan::findOrFail($request['plan']);
-        session()->put('paymentPlatform', $request['method']);
+        $paymentPlatform = $this->paymentPlatformResolver->resolveService($request->method);
+        session()->put('paymentPlatform', $request->method);
 
-        $this->paymentService->checkout(auth()->user, $plan, $this->getOrganizationId());
+        $response = $paymentPlatform->handlePayment($request->amount);
 
-//        if ($response->success === true) {
-//            return inertia::location($response->data);
-//        } else {
-//            return redirect('/billing')->with(
-//                'status', [
-//                    'type' => 'error',
-//                    'message' => __('Could not process your payment successfully!')
-//                ]
-//            );
-//        }
+        if ($response->success === true) {
+            return inertia::location($response->data);
+        } else {
+            return redirect('/billing')->with(
+                'status', [
+                    'type' => 'error', 
+                    'message' => __('Could not process your payment successfully!')
+                ]
+            );
+        }
     }
 
     private function paymentMethods(){
@@ -122,8 +100,12 @@ class BillingController extends BaseController
         // Retrieve active addons and check settings
         $activeAddons = Addon::where('category', 'payments')
             ->where('status', 1)
-            ->where('is_active', 1)
             ->get()
+            ->filter(function ($addon) {
+                $addonName = strtolower($addon->name);
+                $settingKey = "{$addonName}_active";
+                return Setting::where('key', $settingKey)->where('value', 1)->exists();
+            })
             ->pluck('name')
             ->toArray();
 
@@ -133,5 +115,16 @@ class BillingController extends BaseController
         }
 
         return $mergedData;
+    }
+
+
+    public function failedPayment(Request $request){
+        Log::info($request->all());
+        dd($request->all());
+    }
+    
+    public function successPayment(Request $request){
+        Log::info($request->all());
+        dd($request->all());
     }
 }

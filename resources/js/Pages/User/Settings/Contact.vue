@@ -1,5 +1,5 @@
 <template>
-    <SettingLayout :modules="props.modules">
+    <SettingLayout>
         <div class="md:h-[90vh]">
             <div class="flex justify-center items-center">
                 <div class="md:w-[60em]">
@@ -39,7 +39,7 @@
                                     </span> 
                                 </div>
                                 <div class="ml-auto">
-                                    <button @click="openModal()" class="float-right rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add fields') }}</button>
+                                    <button @click="openModal()" class="float-right rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add fields') }}</button>
                                 </div>
                             </div>
                             <div class="w-5/5">
@@ -124,7 +124,7 @@
     import FormTextArea from '@/Components/FormTextArea.vue';
     import ContactFieldTable from '@/Components/Tables/ContactFieldTable.vue';
 
-    const props = defineProps(['rows', 'filters', 'settings', 'modules']);
+    const props = defineProps({ rows: Object, filters: Object, settings: Object });
     const isOpenFormModal = ref(false);
     const label = ref('Add Contact Field');
     const formUrl = ref('/contact-fields');

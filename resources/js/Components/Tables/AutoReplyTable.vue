@@ -16,7 +16,6 @@
     import Dropdown from '@/Components/Dropdown.vue';
     import DropdownItemGroup from '@/Components/DropdownItemGroup.vue';
     import DropdownItem from '@/Components/DropdownItem.vue';
-    import Pagination from '@/Components/Pagination.vue';
 
     const props = defineProps({
         rows: {
@@ -134,10 +133,6 @@
                 </TableBodyRow>
             </TableBody>
         </table>
-    </div>
-
-    <div class="px-4 pb-4">
-        <Pagination class="mt-3" :pagination="rows.meta"/>
     </div>
 
     <!-- Alert Modal Component-->

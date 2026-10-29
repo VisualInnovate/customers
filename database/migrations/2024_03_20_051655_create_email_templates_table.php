@@ -15,8 +15,8 @@ class CreateEmailTemplatesTable extends Migration
     {
         Schema::create('email_templates', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('name');
-            $table->string('subject');
+            $table->string('name', 128);
+            $table->string('subject', 128);
             $table->binary('body');
             $table->timestamp('updated_at')->useCurrent();
             $table->unsignedBigInteger('updated_by');

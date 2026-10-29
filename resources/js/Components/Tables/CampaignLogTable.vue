@@ -85,7 +85,6 @@
                 <TableHeaderRowItem :position="'first'" class="hidden sm:table-cell">{{ $t('Contact') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Phone') }}</TableHeaderRowItem>
                 <TableHeaderRowItem class="hidden sm:table-cell">{{ $t('Last updated') }}</TableHeaderRowItem>
-                <TableHeaderRowItem>{{ $t('Retries') }}</TableHeaderRowItem>
                 <TableHeaderRowItem>{{ $t('Status') }}</TableHeaderRowItem>
                 <TableHeaderRowItem :position="'last'"></TableHeaderRowItem>
             </TableHeaderRow>
@@ -99,11 +98,6 @@
                 <TableBodyRowItem class="hidden sm:table-cell">
                     <span v-if="item.status === 'success'" class="border-b border-dashed border-black">{{ item.chat.created_at }}</span>
                     <span v-else class="border-b border-dashed border-black">{{ item.created_at }}</span>
-                </TableBodyRowItem>
-                <TableBodyRowItem>
-                    <span>
-                        {{ item.retry_count }}
-                    </span>
                 </TableBodyRowItem>
                 <TableBodyRowItem>
                     <span class="px-2 py-1 text-xs rounded-md capitalize" :class="item.status === 'success' ? 'bg-green-700 text-white' : 'bg-red-400 text-white'">

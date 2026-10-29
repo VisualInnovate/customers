@@ -116,7 +116,21 @@
         { label: 'Production', value: 'production' },
     ]
 
-    const socials = JSON.parse(getValueByKey('socials'));
+    const parseSocials = (value) => {
+        if (typeof value !== 'string' || value.trim() === '') {
+            return {};
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch (error) {
+            console.error('Unable to parse the socials setting as JSON.', error);
+            return {};
+        }
+    };
+
+    const socials = parseSocials(getValueByKey('socials'));
     const isLoading = ref(false);
 
     const form = useForm({

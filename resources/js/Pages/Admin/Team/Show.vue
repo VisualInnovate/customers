@@ -2,7 +2,7 @@
     <AppLayout>
         <div class="bg-white md:bg-inherit pt-0 px-4 md:pt-8 md:p-8 rounded-[5px] text-[#000] overflow-y-scroll">
             <div class="md:flex justify-between hidden">
-                <div>
+                <div>dafdssdfdsfdaf
                     <h1 v-if="props.user === null" class="text-xl mb-1">{{ $t('Create user') }}</h1>
                     <h1 v-else class="text-xl mb-1">{{ $t('Update user') }}</h1>
                     <p class="mb-6 flex items-center text-sm leading-6 text-gray-600">
@@ -12,7 +12,7 @@
                     </p>
                 </div>
                 <div>
-                    <Link href="/admin/team/users" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
+                    <Link href="/admin/team/users" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
                 </div>
             </div>
             <form @submit.prevent="submitForm()" class="bg-white md:border py-5 px-5 rounded-[0.5rem]">
@@ -90,7 +90,8 @@
         city: getAddressDetail(props.user?.address, 'city'),
         state: getAddressDetail(props.user?.address, 'state'),
         zip: getAddressDetail(props.user?.address, 'zip'),
-        country: getAddressDetail(props.user?.address, 'country')
+        country: getAddressDetail(props.user?.address, 'country'),
+        admin_id: props.user?.admin_id || null
     })
 
     const roleOptions = () => {
@@ -105,6 +106,12 @@
 
         form[props.user ? 'put' : 'post'](url, {
             preserveScroll: true,
+            // Add admin_id explicitly to the request data
+            data: {
+                ...form.data, // Spread the existing form data
+                admin_id: form.admin_id // Ensure admin_id is included
+            }
         });
     };
+
 </script>

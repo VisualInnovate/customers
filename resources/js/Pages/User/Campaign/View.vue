@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
-        <div class="p-4 md:p-8 rounded-[5px] h-full overflow-y-auto">
-            <div class="flex justify-between capitalize">
+        <div class="p-4 md:p-8 rounded-[5px] h-full overflow-y-auto capitalize">
+            <div class="flex justify-between">
                 <div>
                     <h2 class="text-xl mb-1">{{ $t('Campaign details') }}</h2>
                     <p class="mb-6 flex items-center text-sm leading-6">
@@ -20,7 +20,7 @@
             </div>
 
             <div class="md:flex md:space-x-4">
-                <div class="md:w-[70%] capitalize">
+                <div class="md:w-[70%]">
                     <div class="flex w-[100%] mb-8 rounded-lg">
                         <div class="w-full rounded-tl-lg rounded-bl-lg text-center bg-white py-8 border">
                             <h2 class="text-xl">{{ props.campaign.total_message_count }}</h2>
@@ -47,7 +47,7 @@
                     <CampaignLogTable :rows="props.rows" :filters="props.filters" :uuid="props.campaign.uuid"/>
                 </div>
                 <div class="md:w-[30%]">
-                    <div class="w-full rounded-lg bg-white pt-4 pb-8 border px-4 space-y-1 capitalize">
+                    <div class="w-full rounded-lg bg-white pt-4 pb-8 border px-4 space-y-1">
                         <h2 class="mb-2">{{ $t('Campaign details') }}</h2>
                         <div class="text-sm bg-slate-100 p-3 rounded-lg">
                             <h3>{{ $t('Campaign name') }}</h3>

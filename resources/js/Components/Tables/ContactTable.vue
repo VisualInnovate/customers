@@ -1,22 +1,29 @@
 <script setup>
-    import { computed, ref, watchEffect, onMounted, onUpdated } from 'vue';
+    import { computed, ref, watchEffect, onMounted, onUpdated, watch } from 'vue';
     import debounce from 'lodash/debounce';
     import { Link, router, usePage } from "@inertiajs/vue3";
     import ContactImportModal from '@/Components/ContactImportModal.vue';
     import Dropdown from '@/Components/Dropdown.vue';
     import DropdownItemGroup from '@/Components/DropdownItemGroup.vue';
     import DropdownItem from '@/Components/DropdownItem.vue';
+    import FormSelect from '@/Components/FormSelect.vue';
     import Modal from '@/Components/Modal.vue';
     import Pagination from '@/Components/Pagination.vue';
     import { trans } from 'laravel-vue-i18n';
-
+    import AlertModal from '@/Components/AlertModal.vue';
+    import { useAlertModal } from '@/Composables/useAlertModal';
     const props = defineProps(['rows', 'filters', 'type']);
 
     const params = ref({
         id: props.filters?.id,
         search: props.filters?.search,
-        page: props.filters?.page
+        page: props.filters?.page,
+        sort : props.filters?.sort , 
+    
     });
+
+
+    const { isOpenAlert, openAlert, confirmAlert } = useAlertModal();
     
     const isOpenModal = ref(false);
     const isSearching = ref(false);
@@ -25,7 +32,12 @@
     const selectedCount = ref(0);
     const checkedContacts = ref([]);
     const checkedGroups = ref([]);
-
+    const deleteType = ref(null);
+    const country = ref()
+     const countriesOptions = ref([
+        { value: 3, label: 'Egypt' },
+        { value: 2, label: 'Saudia' }
+    ]);
     function getRow(value) {
         params.value.id = value;
 
@@ -57,7 +69,18 @@
             data: filteredParams,
         })
     }
-
+    function sortContact() {
+        
+        params.value.sort = !params.value.sort ? 'desc' : ( params.value.sort==='desc' ? 'asc' : 'desc');
+        
+        const filteredParams = Object.fromEntries(
+            Object.entries(params.value).filter(([_, value]) => value !== null)
+        )
+           router.visit(props.type === 'contact' ? '/contacts' : '/contact-groups', {
+            method: 'get',
+            data: filteredParams,
+        })
+    }
     // Save checked items to local storage
     function saveCheckedItems() {
         if(props.type === 'contact'){
@@ -157,6 +180,7 @@
         })
     }
 
+
     // Lifecycle hooks
     onMounted(() => {
         loadCheckedItems();
@@ -194,7 +218,7 @@
         </div>
     </div>
     <div class="flex justify-between px-4 border-b">
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center justify-between space-x-2">
             <label @click="toggleAllCheckboxes($event)" for="myCheckbox" class="cursor-pointer">
                 <div class="w-4 h-4 border border-gray-400 rounded-md flex items-center justify-center" :class="{ 'bg-secondary': bulkCheckbox }">
                     <svg v-if="bulkCheckbox" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -207,7 +231,10 @@
                 <span v-else-if="selectedCount > 0">{{ selectedCount }} {{ $t('selected') }}</span>
             </label>
         </div>
-        <div>
+        <div class="flex items-center gap-x-2">
+            <div>
+               <button @click="sortContact" class="rounded-full hover:shadow-md hover:bg-slate-50 w-6 h-6 transition flex items-center justify-center "> <svg  xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 512 512"><path fill="currentColor" d="m206.392 382.863l-51.883 51.882V17.177h-32v417.568l-51.882-51.882L48 405.49L138.509 496l90.51-90.51zm84.921 74.314h144v-32H326.274l109.039-100.732v-43.268h-136v32h101.04l-109.04 100.732zm52.468-408l-58.666 176h33.73l18.667-56h59.6l18.666 56h33.731l-58.666-176Zm4.4 88l18.667-56h.935l18.667 56Z"/></svg> </button>
+            </div>
             <div class="float-right">
                 <Dropdown :align="'right'" class="mt-2">
                     <button class="inline-flex w-full justify-center rounded-md text-sm font-medium text-black hbg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
@@ -219,8 +246,8 @@
                         <DropdownItemGroup>
                             <DropdownItem as="button" @click="isOpenModal = true">{{ $t('Import rows') }}</DropdownItem>
                             <DropdownItem as="button"><a :href="type === 'contact' ? '/contacts/export' : '/contact-groups/export'" class="w-full h-full">{{ $t('Export to xlsx') }}</a></DropdownItem>
-                            <DropdownItem v-if="selectedCount > 0" as="button" @click="deleteItems()">{{ $t('Delete selected') }}</DropdownItem>
-                            <DropdownItem as="button" @click="deleteItems('all')">{{ $t('Delete all') }}</DropdownItem>
+                            <DropdownItem v-if="selectedCount > 0" as="button" @click="[openAlert('') , deleteType='contact'] ">{{ $t('Delete selected') }}</DropdownItem>
+                            <DropdownItem as="button" @click="[openAlert('all') , deleteType='all']">{{ $t('Delete all') }}</DropdownItem>
                         </DropdownItemGroup>
                     </template>
                 </Dropdown>
@@ -244,16 +271,22 @@
                     </div>
                 </label>
             </div>
-            <div class="w-[15%]">
+            <div >
                 <img v-if="contact.avatar" class="rounded-full h-12 w-12" :src="contact.avatar">
                 <div v-else class="rounded-full bg-secondary/10 text-secondary flex justify-center items-center h-12 w-12">{{ contact.first_name?.substring(0, 1) }}</div>
             </div>
-            <div class="w-[75%]">
+            <div >
+                <div class="flex items-center gap-2">
                 <h3>{{ contact?.full_name }}</h3>
+                <svg v-if="contact.is_favorite" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#FFD700" d="M9.153 5.408C10.42 3.136 11.053 2 12 2c.947 0 1.58 1.136 2.847 3.408l.328.588c.36.646.54.969.82 1.182c.28.213.63.292 1.33.45l.636.144c2.46.557 3.689.835 3.982 1.776c.292.94-.546 1.921-2.223 3.882l-.434.507c-.476.557-.715.836-.822 1.18c-.107.345-.071.717.001 1.46l.066.677c.253 2.617.38 3.925-.386 4.506c-.766.582-1.918.051-4.22-1.009l-.597-.274c-.654-.302-.981-.452-1.328-.452c-.347 0-.674.15-1.328.452l-.596.274c-2.303 1.06-3.455 1.59-4.22 1.01c-.767-.582-.64-1.89-.387-4.507l.066-.676c.072-.744.108-1.116 0-1.46c-.106-.345-.345-.624-.821-1.18l-.434-.508c-1.677-1.96-2.515-2.941-2.223-3.882c.293-.941 1.523-1.22 3.983-1.776l.636-.144c.699-.158 1.048-.237 1.329-.45c.28-.213.46-.536.82-1.182z"/></svg>
+                </div>
                 <p class="text-slate-500 text-xs truncate">{{ contact.formatted_phone_number }}</p>
             </div>
-            <div class="w-[10%]">
-                <svg v-if="contact.is_favorite" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#FFD700" d="M9.153 5.408C10.42 3.136 11.053 2 12 2c.947 0 1.58 1.136 2.847 3.408l.328.588c.36.646.54.969.82 1.182c.28.213.63.292 1.33.45l.636.144c2.46.557 3.689.835 3.982 1.776c.292.94-.546 1.921-2.223 3.882l-.434.507c-.476.557-.715.836-.822 1.18c-.107.345-.071.717.001 1.46l.066.677c.253 2.617.38 3.925-.386 4.506c-.766.582-1.918.051-4.22-1.009l-.597-.274c-.654-.302-.981-.452-1.328-.452c-.347 0-.674.15-1.328.452l-.596.274c-2.303 1.06-3.455 1.59-4.22 1.01c-.767-.582-.64-1.89-.387-4.507l.066-.676c.072-.744.108-1.116 0-1.46c-.106-.345-.345-.624-.821-1.18l-.434-.508c-1.677-1.96-2.515-2.941-2.223-3.882c.293-.941 1.523-1.22 3.983-1.776l.636-.144c.699-.158 1.048-.237 1.329-.45c.28-.213.46-.536.82-1.182z"/></svg>
+            <div class="flex items-center gap-1 !ml-auto">
+                <div v-if="contact.tags?.length" class="py-1 px-2  border-primary border text-primary rounded-full w-fit bg-primary-light-2 text-xs">
+                  {{ contact.tags[0]?.tag }}
+              </div>
+              <span v-if="contact.tags?.length>1" class="text-xs text-slate-500"> + {{ contact.tags.slice(1).length}} {{ $t('more') }} </span>
             </div>
         </div>
         <div v-else-if="type === 'group'" @click="getRow(row.uuid)" class="flex space-x-2 hover:bg-gray-50 cursor-pointer px-4 py-3 border-b" :class="row.isChecked ? 'bg-gray-50' : ''" v-for="(row, key) in rows.data" :key="key">
@@ -278,5 +311,6 @@
         <Pagination class="mt-3" :pagination="rows.meta"/>
     </div>
     <ContactImportModal :type="type" v-model:modelValue="isOpenModal"/>
+    <AlertModal v-model="isOpenAlert" @confirm="() => confirmAlert(deleteItems)" :label="deleteType ==='contact' ?  $t('Delete Contact') : $t('Delete All Contacts')"    :description="$t(`Are you sure you want to delete ${ deleteType ==='contact' ? 'this Contact' : 'all Contacts'}? This action can not be undone`)" />
 </template>
   

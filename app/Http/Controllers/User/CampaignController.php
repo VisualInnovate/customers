@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\User;
 
 use App\Exports\CampaignDetailsExport;
-use App\Helpers\DateTimeHelper;
 use App\Http\Controllers\Controller as BaseController;
 use App\Http\Requests\StoreCampaign;
 use App\Http\Resources\CampaignResource;
@@ -14,7 +13,6 @@ use App\Models\ContactGroup;
 use App\Models\Organization;
 use App\Models\Template;
 use App\Services\CampaignService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -52,7 +50,10 @@ class CampaignController extends BaseController
             return Inertia::render('User/Campaign/Index', [ 'title'=> __('Campaigns'), 'allowCreate' => true, 'rows' => $rows, 'filters' => request()->all(['search']), 'settings' => $settings ]);
         } else if($uuid == 'create'){
             $data['settings'] = Organization::where('id', $organizationId)->first();
-            $data['templates'] = \App\Services\TemplateCacheService::getApproved($organizationId);
+            $data['templates'] = Template::where('organization_id', $organizationId)
+                ->where('deleted_at', null)
+                ->where('status', 'APPROVED')
+                ->get();
 
             $data['contactGroups'] = ContactGroup::where('organization_id', $organizationId)
                 ->where('deleted_at', null)
@@ -122,28 +123,6 @@ class CampaignController extends BaseController
             'status', [
                 'type' => 'success', 
                 'message' => __('Row deleted successfully!')
-            ]
-        );
-    }
-
-    public function rescheduleFailedMessages($campaignUuid)
-    {
-        $campaign = Campaign::where('uuid', $campaignUuid)->first();
-        if($campaign == null) return response()->json([
-            'message' => 'Failed to find this campaign',
-            'status' => 'error'
-        ]);
-        $campaign->status = 'ongoing';
-        $campaign->save();
-        // Fetch all failed campaign logs for the given campaign ID
-        DB::table('campaign_logs')->where('campaign_id', $campaign->id)
-            ->where('status', 'failed')
-            ->update(['status' => 'pending']);
-
-        return Redirect::back()->with(
-            'status', [
-                'type' => 'success',
-                'message' => __('Messages rescheduled successfully!')
             ]
         );
     }

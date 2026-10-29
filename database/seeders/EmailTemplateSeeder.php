@@ -80,10 +80,7 @@ class EmailTemplateSeeder extends Seeder
         ];
 
         foreach ($templates as $template) {
-            EmailTemplate::firstOrCreate(
-                ['name' => $template['name']],
-                $template
-            );
+            EmailTemplate::create($template);
         }
     }
 }

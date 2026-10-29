@@ -9,7 +9,7 @@
                 </p>
             </div>
             <div class="flex items-center space-x-2">
-                <button @click="isOpenModal = true" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Bulk edit translations') }}</button>
+                <button @click="isOpenModal = true" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Bulk edit translations') }}</button>
                 <Link href="/admin/languages" class="rounded-md bg-black px-3 py-2 text-sm text-white shadow-sm hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Back') }}</Link>
             </div>
         </div>

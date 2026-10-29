@@ -4,71 +4,65 @@
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Thin.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Thin.ttf") format("truetype");
     font-weight: 200;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-ExtraLight.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-ExtraLight.ttf") format("truetype");
     font-weight: 200;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Light.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Light.ttf") format("truetype");
     font-weight: 300;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Regular.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Regular.ttf") format("truetype");
     font-weight: normal;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Medium.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Medium.ttf") format("truetype");
     font-weight: 500;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-SemiBold.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-SemiBold.ttf") format("truetype");
     font-weight: 600;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Bold.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Bold.ttf") format("truetype");
     font-weight: bold;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-ExtraBold.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-ExtraBold.ttf") format("truetype");
     font-weight: 800;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Outfit";
-    src: local('Outfit'), url("../fonts/Outfit/Outfit-Black.ttf") format("truetype");
+    src: local('Outfit'), url("/resources/fonts/outfit/Outfit-Black.ttf") format("truetype");
     font-weight: 900;
     font-style: normal;
-}
-
-@layer base {
-    :root {
-        --primary: 164 90% 15%;
-    }
 }
 
 body {
@@ -220,40 +214,4 @@ h2 {
     border-bottom: 5px solid transparent;
     left: -10px;
     top: 0;
-}
-
-._7r39 {
-    background-color: transparent;
-    background-size: cover;
-    background-repeat: no-repeat;
-    border-radius: 4px;
-    box-sizing: border-box;
-    min-width: 24em;
-    min-height: 15em;
-}
-
-/* RTL Support */
-.direction-rtl {
-    direction: rtl;
-    text-align: right;
-}
-
-.direction-rtl .reverse-flex {
-    flex-direction: row-reverse;
-}
-
-.direction-ltr {
-    direction: ltr;
-    text-align: left;
-}
-
-/* RTL-specific margins and paddings */
-.direction-rtl .ml-auto {
-    margin-left: unset;
-    margin-right: auto;
-}
-
-.direction-rtl .mr-auto {
-    margin-right: unset;
-    margin-left: auto;
 }

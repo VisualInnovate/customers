@@ -9,7 +9,7 @@
                 </p>
             </div>
             <div>
-                <button @click="openModal()" type="button" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add language') }}</button>
+                <button @click="openModal()" type="button" class="rounded-md bg-primary px-3 py-2 text-sm text-white shadow-sm hover:bg-primaryLight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ $t('Add language') }}</button>
             </div>
         </div>
 
@@ -47,8 +47,7 @@
     const form = {
         name: null,
         code: null,
-        status: null,
-        is_rtl: false,
+        status: null
     };
 
     const getValueByKey = (key) => {
@@ -70,7 +69,6 @@
             form.name = null;
             form.code = null;
             form.status = null;
-            form.is_rtl = false;
             isOpenFormModal.value = true;
         }
     }
@@ -115,15 +113,5 @@
             ],
             className: 'sm:col-span-3',
         },
-        {
-            inputType: 'FormSelect',
-            name: 'is_rtl',
-            label: trans('Right to Left'),
-            options: [
-                { value: false, label: trans('False') },
-                { value: true, label: trans('True') },
-            ],
-            className: 'sm:col-span-6',
-        }
     ];
 </script>

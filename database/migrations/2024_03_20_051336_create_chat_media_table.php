@@ -15,8 +15,8 @@ class CreateChatMediaTable extends Migration
     {
         Schema::create('chat_media', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('name');
-            $table->string('path')->nullable();
+            $table->string('name', 255);
+            $table->string('path', 255)->nullable();
             $table->enum('location', ['local', 'amazon'])->default('local');
             $table->string('type', 128);
             $table->string('size', 128);

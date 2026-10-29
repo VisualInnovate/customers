@@ -34,7 +34,7 @@
                 >
             </div>
             <div class="text-sm leading-6">
-                <label :for="name" class="text-gray-900 capitalize">{{ label }}</label>
+                <label :for="name" class="font-medium text-gray-900 capitalize">{{ label }}</label>
             </div>
         </div>
     </div>

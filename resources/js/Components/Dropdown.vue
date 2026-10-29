@@ -6,6 +6,10 @@
         align: {
             type: String,
             default: "right"
+        },
+        customClass:{
+            type: String,
+            default: ""
         }
     })
 </script>
@@ -30,9 +34,11 @@
                     'right-0 origin-top-right' : props.align === 'right',
                     'left-0 origin-top-left' : props.align === 'left',
                     'top-[-135px] left-0 origin-top-left' : props.align === 'top-left',
+                    [customClass]: props.customClass
+                    
                 }"
-                class="z-10 absolute mt-2 w-32 divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                
+                class="z-10 absolute mt-2 w-32 divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"   >
+              
                 <slot name="items" />
             </MenuItems>
         </transition>

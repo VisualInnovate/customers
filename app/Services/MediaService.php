@@ -18,7 +18,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Storage;
 
 class MediaService
 {
@@ -35,15 +35,5 @@ class MediaService
         $name = basename($path);
 
         return ['name' => $name, 'path' => $imageUrl];
-    }
-
-    public static function delete($mediaPath)
-    {
-        if(config('settings.use_s3_as_storage',false)){
-            Storage::disk('s3')->delete($mediaPath);
-        } else {
-            Storage::disk('public')->delete($mediaPath);
-        }
-        return true;
     }
 }

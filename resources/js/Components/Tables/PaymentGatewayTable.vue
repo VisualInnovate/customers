@@ -7,6 +7,7 @@
     import PayPalFormModal from '@/Components/PaymentConfigModals/PayPalModal.vue';
     import PaystackFormModal from '@/Components/PaymentConfigModals/PaystackModal.vue';
     import StripeFormModal from '@/Components/PaymentConfigModals/StripeModal.vue';
+    import TapFormModal from '@/Components/PaymentConfigModals/TapModal.vue';
     import Table from '@/Components/Table.vue';
     import TableBody from '@/Components/TableBody.vue';
     import TableBodyRow from '@/Components/TableBodyRow.vue';
@@ -56,5 +57,5 @@
     <PayPalFormModal v-if="paymentMethod === 'Paypal'" v-model="isOpenFormModal" @closeModal="isOpenFormModal = false"/>
     <PaystackFormModal v-if="paymentMethod === 'Paystack'" v-model="isOpenFormModal" @closeModal="isOpenFormModal = false"/>
     <StripeFormModal v-if="paymentMethod === 'Stripe'" v-model="isOpenFormModal" @closeModal="isOpenFormModal = false"/>
+    <TapFormModal v-if="paymentMethod === 'Tap'" v-model="isOpenFormModal" @closeModal="isOpenFormModal = false"/>
 </template>
-  

@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\TicketCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -25,12 +24,7 @@ class TicketCategoriesTableSeeder extends Seeder
             ['name' => 'Other'],
         ];
 
-        foreach ($categories as $category) {
-            // Insert or update the category
-            TicketCategory::firstOrCreate(
-                ['name' => $category['name']], // Search by category name
-                $category // Insert or update the category data
-            );
-        }
+        // Insert data into the ticket_categories table
+        DB::table('ticket_categories')->insert($categories);
     }
 }

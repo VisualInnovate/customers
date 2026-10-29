@@ -5,9 +5,7 @@ namespace App\Http\Controllers\User;
 use Carbon\Carbon;
 use DB;
 use App\Http\Controllers\Controller as BaseController;
-use App\Helpers\CustomHelper;
 use App\Helpers\SubscriptionHelper;
-use App\Models\Addon;
 use App\Models\Chat;
 use App\Models\Campaign;
 use App\Models\Contact;
@@ -18,7 +16,6 @@ use App\Models\Template;
 use App\Services\SubscriptionService;
 use App\Services\WhatsappService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class DashboardController extends BaseController
@@ -30,22 +27,14 @@ class DashboardController extends BaseController
 
     public function index(Request $request){
         $organizationId = session()->get('current_organization');
-        $data['subscription'] = Subscription::with('plan')->where('organization_id', $organizationId)->first();
-        $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']->plan_id);
+        $data['subscription'] = Subscription::with('plan')->where('organization_id', $organizationId)?->first();
+        $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']?->plan_id);
         $data['subscriptionIsActive'] = SubscriptionService::isSubscriptionActive($organizationId);
-        // Cache chat count for 3 hours
-        $data['chatCount'] = Cache::remember('dashboard_chat_count_org_' . $organizationId, 10800, function() use ($organizationId) {
-            return Chat::where('organization_id', $organizationId)
-                ->whereNull('deleted_at')
-                ->whereHas('contact', function ($query) {
-                    $query->whereNull('deleted_at');
-                })
-                ->count();
-        });
-        $data['campaignCount'] = Campaign::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
+        $data['chatCount'] = Chat::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
+        $data['campaignCount'] = Campaign::where('organization_id', $organizationId)->count();
         $data['contactCount'] = Contact::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
-        $data['templateCount'] = \App\Services\TemplateCacheService::count($organizationId);
-        $data['graphAPIVersion'] = config('graph.api_version');
+        $data['templateCount'] = Template::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
+        $data['graphAPIVersion'] = env('GRAPH_API_VERSION', 'v20.0');
 
         $organizationId = session()->get('current_organization');
         $organization = Organization::where('id', $organizationId)->first();
@@ -58,11 +47,11 @@ class DashboardController extends BaseController
             ->whereIn('status', ['pending', 'scheduled'])
             ->limit(5)
             ->get();
-        $data['setupWhatsapp'] = !isset($config['whatsapp']);;
+        $data['setupWhatsapp'] = isset($config['whatsapp']) ? false : true;;
         $data['period'] = $this->period();
         $data['inbound'] = $this->getChatCounts('inbound');
         $data['outbound'] = $this->getChatCounts('outbound');
-        $data['embeddedSignupActive'] = CustomHelper::isModuleEnabled('Embedded Signup');
+        $data['embeddedSignupActive'] = $settings->get('is_embedded_signup_active', 0);
         $data['appId'] = $settings->get('whatsapp_client_id', null);
         $data['configId'] = $settings->get('whatsapp_config_id', null);
         $data['title'] = __('Dashboard');

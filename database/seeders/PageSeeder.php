@@ -25,10 +25,7 @@ class PageSeeder extends Seeder
         ];
 
         foreach ($rows as $row) {
-            Page::firstOrCreate(
-                ['name' => $row['name']],
-                $row
-            );
+            Page::create($row);
         }
     }
 }

@@ -85,7 +85,6 @@
         :label="$t('Edit group')" 
         :url="'/contact-groups/' + group?.uuid" 
         :form="form"
-        :selectContact="props.group.contacts"
         :formInputs="formInputs"
     />
 </template>

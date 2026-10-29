@@ -2,26 +2,74 @@
 
 namespace App\Services;
 
-use App\Helpers\UnreadCountHelper;
 use App\Helpers\WebhookHelper;
 use App\Models\Chat;
 use App\Models\Contact;
-use App\Models\ContactContactGroup;
 use App\Models\ContactGroup;
+use App\Models\ContactTag;
+use App\Models\Organization;
 use App\Models\Setting;
+use Exception;
+use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Propaganistas\LaravelPhone\PhoneNumber;
 
 class ContactService
 {
     private $organizationId;
+    private $apiVersion;
+    private $accessToken;
 
     public function __construct($organizationId)
     {
         $this->organizationId = $organizationId;
+        $this->apiVersion = env('GRAPH_API_VERSION', 'v20.0');
+        $config = Organization::where('id', $this->organizationId)->first()->metadata;
+        $config = $config ? json_decode($config, true) : [];
+        $this->accessToken = $config['whatsapp']['access_token']  ?? null;
     }
 
+    public function setHeaders()
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->accessToken,
+            'Content-Type' => 'application/json',
+        ];
+    }
+
+    
     public function store(object $request, $uuid = null){
+        // if ($uuid === null) {
+        //     $url = "https://graph.facebook.com/v1/contacts";
+        //     $client = new Client();
+        //     $response = $client->post($url, [
+        //         'json' => [
+        //             'blocking' => 'no_wait',
+        //             'contacts' => [$request->phone],
+        //             'force_check' => true,
+        //         ],
+        //         // 'headers' => $this->setHeaders(),
+        //     ]);
+
+        //     dd($response);
+
+        //     if ($response->successful()) {
+        //         $data = $response->json();            
+        //         $checkContact = $data['contacts'][0] ?? null;
+        //         if ($checkContact && $checkContact['status'] === 'valid') {
+        //             $contact = new Contact();
+        //         }
+        //         return [
+        //             'valid' => false,
+        //             'status' => $contact['status'] ?? 'unknown',
+        //         ];
+        //         dd($data);
+        //     }
+            
+        // } else {
+        //     $contact = Contact::where('uuid', $uuid)->firstOrFail();
+        // }
         $contact = $uuid === null ? new Contact() : Contact::where('uuid', $uuid)->firstOrFail();
         $contact->first_name = $request->first_name;
         $contact->last_name = $request->last_name;
@@ -29,6 +77,11 @@ class ContactService
 
         $phone = new PhoneNumber($request->phone);
         $contact->phone = $phone->formatE164();//$phone->formatInternational();
+
+        if($request->group){
+            $contactGroup = ContactGroup::where('uuid', $request->group)->first();
+            $contact->contact_group_id = $contactGroup->id ?? null;
+        }
 
         if($request->hasFile('file')){
             $storage = Setting::where('key', 'storage_system')->first()->value;
@@ -68,14 +121,36 @@ class ContactService
         $contact->updated_at = now();
         $contact->save();
 
-        if($request->group){
-            $groupUuids = array_map('trim', $request->group);
-            $groupIds = ContactGroup::whereIn('uuid', $groupUuids)->pluck('id')->toArray();
-            $contact->contactGroups()->sync($groupIds);
+        if($uuid === null && isset($request->tags))
+        {
+            $request->validate(['tags' => 'array','tags.*' => 'integer|exists:tags,id']);
+            $organizationId = $this->organizationId; 
+            
+            $contact->tags()->syncWithoutDetaching(
+                collect($request->tags)
+                    ->mapWithKeys(fn($tagId) => [
+                        $tagId => [
+                            'organization_id' => $organizationId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ],
+                    ])
+            );
         }
 
-        if($request->tag_ids){
-            $contact->tags()->sync($request->tag_ids);
+        if ($request->has('tags') && $uuid !== null) {
+            $request->validate(['tags' => 'array','tags.*' => 'integer|exists:tags,id']);
+            $organizationId = $this->organizationId;
+            $contact->tags()->sync(
+                collect($request->tags)
+                    ->mapWithKeys(fn($tagId) => [
+                        $tagId => [
+                            'organization_id' => $organizationId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ],
+                    ])
+            );
         }
 
         // Prepare a clean contact object for webhook
@@ -119,9 +194,11 @@ class ContactService
                     'is_read' => 1
                 ]);
 
-            // Reset unread count for all contacts in this organization
-            Contact::where('organization_id', $this->organizationId)
-                ->update(['unread_count' => 0]);
+            return response()->json([
+                'success' => false,
+                'message' => 'uuids array is empty, no contacts found'
+            ]);
+            
         } else {
             // Delete contacts by UUIDs (soft delete)
             foreach($uuids as $uuid){
@@ -141,9 +218,6 @@ class ContactService
                     ->update([
                         'is_read' => 1
                     ]);
-
-                // Reset unread count for this contact
-                UnreadCountHelper::resetUnreadCount($contact->id);
             }
 
             Contact::whereIn('uuid', $uuids)->where('organization_id', $this->organizationId)->delete();

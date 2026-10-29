@@ -33,8 +33,12 @@ class ContactController extends BaseController
         return session()->get('current_organization');
     }
 
+    public function indexJson(Request $request){
+        return response()->json(['contacts' => Contact::where('organization_id', $this->getCurrentOrganizationId())->select('uuid', 'first_name', 'last_name')->paginate($request->input('per_page', 10))]);
+    }
+
     public function index(Request $request, $uuid = null){
-        $organizationId = $this->getCurrentOrganizationId();
+         $organizationId = $this->getCurrentOrganizationId();
         $contactModel = new Contact;
 
         if($uuid === 'export') {
@@ -44,22 +48,15 @@ class ContactController extends BaseController
             $uuid = $request->query('id') ? $request->query('id') : $uuid ;
             $editContact = $request->query('edit') === 'true' ? true : false;
 
-            $group_id = $request->query('group_id');
-            $contacts = $contactModel
-                ->getAllContacts($organizationId, $searchTerm, $group_id,
-                    $request->query('exclude') ?? false);
+            $sort = $request->query('sort') ? $request->query('sort') : 'desc';
+
+            $contacts = $contactModel->getAllContacts($organizationId, $searchTerm, $sort, $request->query('country'));
             $rowCount = $contactModel->countContacts($organizationId);
             $contactGroups = $contactModel->getAllContactGroups($organizationId);
-            if(isset($request->fetch_json)) {
-                return response()->json([
-                    'rows' => ContactResource::collection($contacts),
-                    'rowCount' => $rowCount,
-                    'contactGroups' => $contactGroups,
-                ]);
-            }
-            $contact = Contact::with(['contactGroups', 'tags'])->where('uuid', $uuid)->where('deleted_at', null)->first();
+            $contact = Contact::with('contactGroup', 'tags')->where('uuid', $uuid)->where('deleted_at', null)->first();
             $contactFields = ContactField::where('organization_id', $organizationId)->where('deleted_at', null)->get();
 
+            //dd($contact);
             return Inertia::render('User/Contact/Index', [
                 'title' => __('Contacts'),
                 'rows' => ContactResource::collection($contacts),
@@ -67,63 +64,46 @@ class ContactController extends BaseController
                 'contact' => $contact,
                 'fields' => $contactFields,
                 'contactGroups' => $contactGroups,
-                'filters' => $request->all(),
+                'filters' => request()->all(),
                 'locationSettings' => $this->getLocationSettings(),
-                'editContact' => $editContact,
+                'editContact' => $editContact
             ]);
         }
     }
 
-    public function import(Request $request) {
-        // Initialize the import process
+    public function import(Request $request) 
+    {
         $import = new ContactsImport();
-
-        // Handle file import
         Excel::import($import, $request->file);
 
-        // Get the count of successful imports
         $successfulImports = $import->getsuccessfulImports();
-        $totalImports = $import->getTotalImportsCount();
-        $failedImports = $totalImports - $successfulImports;
-
-        // Prepare status message based on the import outcome
-        if ($successfulImports === 0) {
-            $statusType = 'error';
-            $statusMessage = __('All rows failed to import. Please check the data format or duplicates.');
-        } elseif ($failedImports === 0) {
-            $statusType = 'success';
-            $statusMessage = __('All rows have been imported successfully!');
-        } elseif ($successfulImports > 0 && $failedImports > 0) {
-            $statusType = 'warning';
-            $statusMessage = __('Some rows have been imported successfully, while others failed. Please check the error logs for details.');
-        }
 
         return redirect('/contacts')->with(
             'status', [
-                'type' => $statusType, 
-                'message' => $statusMessage,
-                'import_summary' => array(
-                    'total_imports' => $totalImports,
-                    'successful_imports' => $successfulImports,
-                    'failed_imports' => $failedImports,
-                    'duplicate_entries'  => $import->getFailedImportsDueToDuplicatesCount(),
-                    'invalid_format_entries' => $import->getFailedImportsDueToFormat(),
-                    'failed_rows_details' => $import->getFailedImports(),
-                    'failed_limit_entries'  => $import->getFailedImportsDueToLimit(),
-                ),
+                'type' => $successfulImports > 0 ? 'success' : 'error', 
+                'message' => $successfulImports > 0 ? __('Excel import successful!') : __('Excel import failed!'),
+                'successfulImports' => $import->getsuccessfulImports(),
+                'failedNames' => $import->getFailedImportsDueToFirstName(),
+                'failedDuplicates' => $import->getFailedImportsDueToDuplicatesCount(),
+                'failedFormats' => $import->getFailedImportsDueToFormat(),
+                'totalImports' => $import->getTotalImportsCount(),
             ]
         );
     }
 
     public function store(StoreContact $request){
         $contact = $this->contactService()->store($request);
-        
-        return redirect('/contacts?id=' . $contact->uuid)->with(
-            'status', [
-                'type' => 'success', 
-                'message' => __('Contact added successfully!')
-            ]
-        );
+        if ($contact) {
+            return redirect('/contacts?id=' . $contact->uuid)->with(
+                'status', [
+                    'type' => 'success', 
+                    'message' => __('Contact added successfully!')
+                ]
+            );
+        }
+        else {
+            return response()->json(['message' => 'Error'], 500);
+        }
     }
 
     public function update(StoreContact $request, $uuid)

@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use App\Rules\UniquePhone;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Rules\ContactLimit;
-use Illuminate\Validation\Rule;
 
 class StoreContact extends FormRequest
 {
@@ -37,13 +36,6 @@ class StoreContact extends FormRequest
                 new UniquePhone($this->organization, $uuid),
             ],
             'email' => 'nullable|email|max:255',
-            'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => [
-                'integer',
-                Rule::exists('tags', 'id')->where(function ($query) {
-                    $query->where('organization_id', session('current_organization'));
-                }),
-            ],
         ];
 
         if ($this->isMethod('post')) {

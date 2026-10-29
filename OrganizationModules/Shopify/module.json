@@ -1,0 +1,11 @@
+{
+    "name": "Shopify",
+    "alias": "shopify",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "OrganizationModules\\Shopify\\App\\Providers\\ShopifyServiceProvider"
+    ],
+    "files": []
+}

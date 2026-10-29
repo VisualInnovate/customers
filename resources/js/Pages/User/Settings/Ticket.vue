@@ -1,5 +1,5 @@
 <template>
-    <SettingLayout :modules="props.modules">
+    <SettingLayout>
         <div class="md:h-[90vh]">
             <div class="flex justify-center items-center">
                 <div class="md:w-[60em]">
@@ -113,7 +113,7 @@
     import { useForm } from "@inertiajs/vue3";
     import { trans } from 'laravel-vue-i18n';
 
-    const props = defineProps(['rows', 'filters', 'settings', 'modules']);
+    const props = defineProps({ rows: Object, filters: Object, settings: Object });
     const config = ref(props.settings.metadata);
     const settings = ref(config.value ? JSON.parse(config.value) : null);
 

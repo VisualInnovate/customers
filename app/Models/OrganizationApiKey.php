@@ -12,9 +12,4 @@ class OrganizationApiKey extends Model {
 
     protected $guarded = [];
     public $timestamps = true;
-
-    public function organization()
-    {
-        return $this->belongsTo(Organization::class, 'organization_id');
-    }
 }

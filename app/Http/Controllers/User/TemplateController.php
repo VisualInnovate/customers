@@ -28,11 +28,6 @@ class TemplateController extends BaseController
         return $this->templateService()->createTemplate($request);
     }
 
-    public function update(Request $request, $uuid)
-    {
-        return $this->templateService()->updateTemplate($request, $uuid);
-    }
-
     public function delete($uuid)
     {
         return $this->templateService()->deleteTemplate($uuid);

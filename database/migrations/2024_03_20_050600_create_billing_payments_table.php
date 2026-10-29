@@ -17,7 +17,7 @@ class CreateBillingPaymentsTable extends Migration
             $table->bigIncrements('id');
             $table->char('uuid', 50)->unique();
             $table->integer('organization_id');
-            $table->string('processor');
+            $table->string('processor', 255);
             $table->text('details')->default(NULL);
             $table->decimal('amount', 13, 10);
         });

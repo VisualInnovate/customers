@@ -17,7 +17,7 @@ class CreateContactGroupsTable extends Migration
             $table->bigIncrements('id');
             $table->char('uuid', 50)->unique();
             $table->integer('organization_id');
-            $table->string('name');
+            $table->string('name', 128);
             $table->integer('created_by');
             $table->timestamps();
             $table->softDeletes();

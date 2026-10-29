@@ -2,19 +2,15 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Addon;
 use App\Models\Chat;
 use App\Models\Language;
 use App\Models\Organization;
 use App\Models\Setting;
 use App\Models\Team;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Inertia\Middleware;
-use RobThree\Auth\TwoFactorAuth;
-use RobThree\Auth\Providers\Qr\BaconQrCodeProvider;
-use Illuminate\Support\Facades\App;
+
 
 class HandleInertiaRequests extends Middleware
 {
@@ -51,30 +47,7 @@ class HandleInertiaRequests extends Middleware
         $organizations = array();
         $user = $request->user();
         $language = session('locale') ?? 'en';
-        $secret = '';
-        $qrcode = '';
-        $tfaActive = false;
-
-        // two-factor stuff
-        if ($user) {
-            $googleAuth = Addon::where('name', 'Google Authenticator')->first()->is_active;
-            $tfaActive = $googleAuth == 1 ? true : false;
-
-            if($googleAuth == 1){
-                $secret = $user->tfa_secret;
-                $tfa = new TwoFactorAuth(new BaconQrCodeProvider());
-        
-                if (!$secret) {
-                    $secret = $tfa->createSecret();
-            
-                    User::where('id', $user->id)->update([
-                        'tfa_secret' => $secret,
-                    ]);
-                }
-        
-                $qrcode = $tfa->getQRCodeImageAsDataUri(preg_replace('#^https?://#', '', config('app.url')), $secret);
-            }
-        }
+        $unreadMessages = 0;
 
         if ($user && $user->role === 'user') {
             $organizationId = session('current_organization');
@@ -84,24 +57,20 @@ class HandleInertiaRequests extends Middleware
 
             $organizations = Team::with('organization')->where('user_id', $user->id)->get();
             $organization = Organization::where('id', $organizationId)->first();
+            $unreadMessages = Chat::where('organization_id', $organizationId)
+                ->where('type', 'inbound')
+                ->where('deleted_at', NULL)
+                ->where('is_read', 0)
+                ->count();
         }
 
         if($this->isInstalled()){
-            $keys = ['favicon', 'logo', 'company_name', 'address', 'currency' , 'email', 'phone', 'socials', 'trial_period', 'recaptcha_site_key', 'recaptcha_active', 'google_analytics_tracking_id', 'google_maps_api_key','pusher_app_key','pusher_app_cluster', 'google_auth_active', 'enable_api_key_input', 'enable_model_selection', 'default_open_ai_text_model', 'default_open_ai_audio_model'];
-            $config = \Cache::remember("settings_cache", 7200, function () use ($keys) { // cache these settings for two hours
-                return Setting::whereIn('key', $keys)->get();
-            });
-            $languages = \Cache::remember("languages_cache", 7200, function () { // cache these settings for two hours
-                return Language::where('deleted_at', null)
-                    ->where('status', 'active')
-                    ->get();
-            });
-            $currentLanguage = Language::where('code', session('locale') ?? App::getLocale())->first();
-            $isRtl = $currentLanguage ? $currentLanguage->is_rtl : false;
+            $keys = ['favicon', 'logo', 'company_name', 'address', 'currency' , 'email', 'phone', 'socials', 'trial_period', 'recaptcha_site_key', 'recaptcha_active', 'google_analytics_tracking_id', 'google_maps_api_key','pusher_app_key','pusher_app_cluster'];
+            $config = Setting::whereIn('key', $keys)->get();
+            $languages = Language::where('deleted_at', null)->where('status', 'active')->get();
         } else {
             $config = array();
             $languages = array();
-            $isRtl = false;
         }
 
         return array_merge(parent::share($request), [
@@ -119,14 +88,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'response_data' => fn () => $request->session()->get('response_data'),
             'languages' => $languages,
-            'currentLanguage' => $language,
-            'tfa' => [
-                'status' => $tfaActive,
-                'secret' => $secret,
-                'qrcode' => $qrcode,
-                'enabled' => $user ? $user->tfa : false,
-            ],
-            'isRtl' => $isRtl,
+            'unreadMessages' => $unreadMessages,
+            'currentLanguage' => $language
         ]);
     }
 

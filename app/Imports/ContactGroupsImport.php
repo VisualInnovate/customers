@@ -25,29 +25,20 @@ class ContactGroupsImport implements ToModel, WithHeadingRow
         try {
             $this->totalImports++;
 
-            // Sequential Validation: First check the first_name field
             $validator = Validator::make($row, [
-                'group_name' => 'required', // Make first_name required
+                'group_name' => [
+                    'required',
+                    function ($attribute, $value, $fail) use ($row) {
+                        if (ContactGroup::where('organization_id', session()->get('current_organization'))->where('name', $row['group_name'])->whereNull('deleted_at')->exists()) {
+                            $this->failedImportsDueToDuplicates++;
+                            $fail('The '.$attribute.' already exists.');
+                        }
+                    }
+                ]
             ]);
 
-            // If first_name fails, stop further validation and return the error
             if ($validator->fails()) {
-                $this->failedImports[] = [
-                    'row' => $row['group_name'],
-                    'error' => __('Name required!')
-                ];
-                $this->failedImportsDueToFormat++;
-                return null;
-            }
-
-            if (ContactGroup::where('organization_id', session()->get('current_organization'))
-                    ->where('name', $row['group_name'])
-                    ->whereNull('deleted_at')->exists()) {
-                $this->failedImports[] = [
-                    'row' => $row['group_name'],
-                    'error' => __('Duplicate group name!')
-                ];
-                $this->failedImportsDueToDuplicates++;
+                //Log::error($validator->errors()->all());
                 return null;
             }
             
@@ -62,10 +53,11 @@ class ContactGroupsImport implements ToModel, WithHeadingRow
                 return $contactGroup;
             }
         } catch (\Exception $e) {
-            $this->failedImports[] = [
-                'row' => $row['group_name'],
-                'error' => __('Invalid format!')
-            ];
+            /*Log::error('Error importing contact: ' . $e->getMessage(), [
+                'row' => $row,
+                'exception' => $e,
+            ]);*/
+
             $this->failedImportsDueToFormat++;
             
             return null;
@@ -85,11 +77,6 @@ class ContactGroupsImport implements ToModel, WithHeadingRow
     public function getSuccessfulImports()
     {
         return $this->successfulImports;
-    }
-
-    public function getFailedImports()
-    {
-        return $this->failedImports;
     }
 
     public function getTotalImportsCount()

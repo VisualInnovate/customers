@@ -11,7 +11,6 @@ use App\Models\PaymentGateway;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
-use App\Models\TaxRate;
 use App\Models\User;
 use App\Services\SubscriptionService;
 use App\Traits\ConsumesExternalServices;
@@ -188,84 +187,6 @@ class StripeService
         }
     }
 
-    public function updateProductPrices(){
-        $plans = SubscriptionPlan::whereNull('deleted_at')->get();
-
-        foreach($plans as $plan){
-            $metadata = json_decode($plan->metadata, true);
-
-            // Get currency and interval settings
-            $currency = Setting::where('key', 'currency')->value('value') ?? 'usd';
-            $interval = $plan->period == 'monthly' ? 'month' : 'year';
-
-            // Retrieve product and price IDs from metadata
-            $productId = $metadata['stripe']['product']['id'] ?? null;
-            $priceId = $metadata['stripe']['price']['id'] ?? null;
-
-            try {
-                if($productId){
-                    // Update the product in Stripe
-                    $product = $this->stripe->products->update(
-                        $productId,
-                        [
-                            'name' => $plan->name ?? null,
-                        ]
-                    );
-                } else {
-                    // Create a new product if it does not exist
-                    $product = $this->stripe->products->create([
-                        'name' => $plan->name,
-                    ]);
-
-                    $productId = $product->id;
-                }
-
-                // Check if we need to update the existing price or create a new one
-                if ($priceId) {
-                    // Update the existing price for the product
-                    $price = $this->stripe->prices->update(
-                        $priceId,
-                        [
-                            'active' => false, //Deactivate price
-                        ]
-                    );
-                }
-
-                $isTaxInclusive = Setting::where('key', 'is_tax_inclusive')->first()->value === '1';
-
-                if($isTaxInclusive){
-                    $totalAmount = $plan->price * 100;  // Stripe expects amount in the smallest currency unit
-                } else {
-                    $totalTax = $this->calculateTaxRates($plan->price);
-                    $totalAmount = round(($plan->price + $totalTax), 2) * 100;  // Stripe expects amount in the smallest currency unit
-                }
-
-                // Create a new price if the price ID does not exist
-                $price = $this->stripe->prices->create([
-                    'currency' => $currency,
-                    'unit_amount' => $totalAmount,
-                    'recurring' => isset($interval) ? ['interval' => $interval] : null,
-                    'product' => $productId,
-                ]);
-                
-                // Update the metadata with the new product and price information
-                $metadata['stripe'] = [
-                    'product' => $product,
-                    'price' => $price ?? null, // Use null if price is not created or updated
-                ];
-
-                $plan->metadata = json_encode($metadata);
-                $plan->save();
-            } catch (\Exception $e) {
-                \Log::error('Error updating product prices: ' . $e->getMessage(), [
-                    'plan_id' => $plan->id,
-                ]);
-            }
-        }
-
-        return (object) array('success' => true);
-    }
-
     public function deleteProduct($productData){
         try {
             $plan = SubscriptionPlan::where('id', $productData->id)->first();
@@ -416,11 +337,16 @@ class StripeService
         }
 
         if($stripeEvent->type == 'invoice.paid'){
+            Log::info($stripeEvent->type);
             $transaction = DB::transaction(function () use ($stripeEvent) {
                 $customerId = $stripeEvent->data->object->customer;
 
+                Log::info($customerId);
+
                 // Query the Organization using the stripe_id (customer ID)
                 $organization = Organization::whereJsonContains('metadata->stripe_id', $customerId)->first();
+
+                Log::info($organization);
 
                 if ($organization) {
                     $subscription = Subscription::where('organization_id', $organization->id)->first();
@@ -446,6 +372,8 @@ class StripeService
                         'created_by' => $userId,
                     ]);
 
+                    Log::info($transaction);
+
                     if($planId == null){
                         $this->subscriptionService->activateSubscriptionIfInactiveAndExpiredWithCredits($organizationId, $userId);
                     } else {
@@ -466,24 +394,5 @@ class StripeService
         return response()->json([
             'status' => 200
         ], 200);
-    }
-
-    private static function calculateTaxRates($grossAmount)
-    {
-        $activeTaxRates = TaxRate::where('status', 'active')->whereNull('deleted_at')->get();
-        $taxRatesDetails = [];
-        $totalTaxAmount = 0;
-
-        foreach($activeTaxRates as $taxRate){
-            $taxAmount = $taxRate->percentage * $grossAmount / 100;
-            $taxRatesDetails[] = array(
-                'name' => $taxRate->name,
-                'percentage' => $taxRate->percentage,
-                'amount' => number_format($taxAmount, 2),
-            );
-            $totalTaxAmount += $taxAmount;
-        }
-
-        return $totalTaxAmount;
     }
 }

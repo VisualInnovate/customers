@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\PaymentGateway;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -41,11 +40,7 @@ class PaymentGatewaysTableSeeder extends Seeder
             ],
         ];
 
-        foreach ($gateways as $gateway) {
-            PaymentGateway::firstOrCreate(
-                ['name' => $gateway['name']], // Search criteria
-                $gateway
-            );
-        }
+        // Insert data into the payment_gateways table
+        DB::table('payment_gateways')->insert($gateways);
     }
 }

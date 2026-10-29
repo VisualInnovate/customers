@@ -49,14 +49,7 @@ class ModulesTableSeeder extends Seeder
             ],
         ];
 
-        foreach ($modules as $module) {
-            // Check if the module already exists by name
-            $existingModule = DB::table('modules')->where('name', $module['name'])->exists();
-
-            if (!$existingModule) {
-                // Insert only if the module name does not exist
-                DB::table('modules')->insert($module);
-            }
-        }
+        // Insert data into the modules table
+        DB::table('modules')->insert($modules);
     }
 }

@@ -2,74 +2,48 @@
     <AppLayout v-slot:default="slotProps">
         <div class="md:flex md:flex-grow md:overflow-hidden">
             <div class="md:w-[30%] md:flex flex-col h-full bg-white border-r border-l" :class="contact ? 'hidden' : ''">
-                <ChatTable :rows="rows" :filters="props.filters" :rowCount="props.rowCount" :ticketingIsEnabled="ticketingIsEnabled" :status="props?.status" :chatSortDirection="props.chat_sort_direction"/>
+                <ChatTable :rows="rows" :filters="props.filters" :rowCount="props.rowCount"
+                    :ticketingIsEnabled="ticketingIsEnabled" :status="props?.status"
+                    :chatSortDirection="props.chat_sort_direction" 
+                    :channel="props?.channel" :ChannelsCount="props.ChannelsCount" />
             </div>
-            <div class="min-w-0 bg-cover flex flex-col chat-bg" :class="contact ? 'h-screen md:w-[70%]' : 'md:h-screen md:w-[70%]'">
-                <ChatHeader 
-                    v-if="contact" 
-                    :ticketingIsEnabled="ticketingIsEnabled" 
-                    :contact="contact" 
-                    :displayContactInfo="displayContactInfo" 
-                    :ticket="ticket" 
-                    :addon="addon" 
-                    @toggleView="toggleContactView" 
-                    @deleteThread="deleteThread" 
-                    @closeThread="closeThread"
-                />
-                <div v-if="contact && !displayTemplate" class="flex-1 overflow-y-auto" ref="scrollContainer2">
-                    <ChatThread 
-                        v-if="!displayContactInfo && !loadingThread && !displayTemplate"
-                        :contactId="contact.id"
-                        :initialMessages="chatThread"
-                        :hasMoreMessages="hasMoreMessages"
-                        :initialNextPage="nextPage"
-                    />
-                    <Contact 
-                        v-if="displayContactInfo && !displayTemplate" 
-                        class="bg-white h-full" 
-                        :fields="props.fields" 
-                        :contact="contact" 
-                        :locationSettings="props.locationSettings" 
-                    />
+      
+            <div class="min-w-0 bg-cover flex flex-col"
+                :class="contact?.last_inbound_chat?.channel =='instagram' ? 'bg-slate-50' : 'chat-bg'"
+                :style="contact ? 'height: 100vh; width: 100%;' : 'height: 100vh; width: 100%;'">
+
+                <ChatHeader v-if="contact" :ticketingIsEnabled="ticketingIsEnabled" :contact="contact"
+                    :displayContactInfo="displayContactInfo" :ticket="ticket" :addon="addon"
+                    @toggleView="toggleContactView" @deleteThread="deleteThread" @closeThread="closeThread" />
+                <div id="pinned-container"></div>
+                <div v-if="contact" id="chats-container" class=" flex-1 overflow-y-auto overflow-x-hidden"
+                    ref="scrollContainer2">
+                     
+                    <ChatThread v-if="!displayContactInfo && !loadingThread" :rows="chatThread"
+                        :statusTracker="statusHandler" @replay="(value) => replayedMessage = value"
+                        @reload-chats="reloadChats" />
+                    <div v-if="contact && displayContactInfo"
+                        class=" min-w-0 bg-cover flex flex-col bg-white border-l">
+                        <ChatContact class="bg-white h-full" :contact="contact" />
+                    </div>
+
+                    <!-- <Contact v-if="displayContactInfo" class="bg-white h-full" :contact="contact" /> -->
                 </div>
-                <div v-if="contact && !displayContactInfo && !formLoading && !displayTemplate" class="w-full py-4">
-                    <ChatForm 
-                        :contact="contact" 
-                        :simpleForm="simpleForm" 
-                        :chatLimitReached="isChatLimitReached" 
-                        @viewTemplate="displayTemplate = true;" 
-                    />
-                </div>
-                <div v-if="displayTemplate" class="flex-1 overflow-y-hidden">
-                    <CampaignForm 
-                        v-if="displayTemplate" 
-                        class="bg-white h-full" 
-                        :contact="contact.uuid" 
-                        :templates="templates" 
-                        :contactGroups="[]" 
-                        :settings="props.settings" 
-                        :displayCancelBtn="false" 
-                        :displayTitle="true" 
-                        :isCampaignFlow="false" 
-                        :scheduleTemplate="false" 
-                        :sendText="'Send Message'" 
-                        @viewTemplate="displayTemplate = false;"
-                    />
+                <div v-if="contact && !formLoading" class="w-full ">
+                    <ChatForm v-if="!displayContactInfo "  :contact="contact" :replayed-message="replayedMessage"
+                        @remove-replay="replayedMessage = null" :chatLimitReached="isChatLimitReached"
+                        @response="updateChatThread" />
                 </div>
             </div>
-            <!--<div v-if="contact" class="md:w-[25%] min-w-0 bg-cover flex flex-col bg-white border-l">
-                <ChatContact v-if="contact" class="bg-white h-full" :contact="contact" />
-            </div>-->
         </div>
         <button class="hidden" ref="toggleNavbarBtn" @click="slotProps.toggleNavBar"></button>
     </AppLayout>
 </template>
 <script setup>
     import AppLayout from "./../Layout/App.vue";
-    import { default as axios } from 'axios';
+    import axios from 'axios';
     import { router, useForm } from '@inertiajs/vue3';
     import { defineEmits, ref, onMounted, watch } from 'vue';
-    import CampaignForm from '@/Components/CampaignForm.vue';
     import ChatForm from '@/Components/ChatComponents/ChatForm.vue';
     import ChatHeader from '@/Components/ChatComponents/ChatHeader.vue';
     import ChatTable from '@/Components/ChatComponents/ChatTable.vue';
@@ -78,56 +52,37 @@
     import Contact from '@/Components/ContactInfo.vue';
     import { getEchoInstance } from '../../../echo';
 
-    const props = defineProps({
-        rows: Array,
-        rowCount: Number,
-        pusherSettings: Object,
-        organizationId: Number,
-        isChatLimitReached: Boolean,
-        toggleNavBar: Function,
-        state: String,
-        demoNumber: String,
-        settings: Object,
-        status: String,
-        chatThread: Array,
-        hasMoreMessages: Boolean,
-        nextPage: Number,
-        addon: Object,
-        contact: Object,
-        ticket: Object,
-        chat_sort_direction: String,
-        filters: Object,
-        templates: Array,
-        fields: Array,
-        locationSettings: Object,
-        simpleForm: Boolean
-    });
-
+    const props = defineProps(['rows','channel','ChannelsCount', 'rowCount', 'pusherSettings', 'organizationId', 'isChatLimitReached', 'toggleNavBar', 'state', 'demoNumber', 'settings', 'status', 'chatThread', 'addon', 'contact', 'ticket', 'chat_sort_direction', 'filters']);
     const rows = ref(props.rows);
     const rowCount = ref(props.rowCount);
+    const scrollContainer = ref(null);
     const scrollContainer2 = ref(null);
     const loadingThread = ref(false);
     const displayContactInfo = ref(false);
-    const displayTemplate = ref(false);
     const formLoading = ref(false);
     const isChatLimitReached = ref(props.isChatLimitReached);
     const toggleNavbarBtn = ref(null);
+    const isOpen = ref(false);
     const config = ref(props.settings.metadata);
     const settings = ref(config.value ? JSON.parse(config.value) : null);
     const ticketingIsEnabled = ref(settings.value?.tickets?.active ?? false);
+    const queryParamsString = window.location.search;
     const chatThread = ref(props.chatThread);
     const contact = ref(props.contact);
-
+    const statusHandler = ref()
+    const replayedMessage = ref(null);
     watch(() => props.rows, (newRows) => {
         rows.value = newRows;
+        //rowCount.value = ref(props.rowCount);
     });
 
     const toggleDropdown = () => {
         isOpen.value = !isOpen.value;
     }
 
-    function toggleContactView(value) {
+    function toggleContactView(value, chatContact) {
         displayContactInfo.value = value;
+
     }
 
     const scrollToBottom = () => {
@@ -145,9 +100,9 @@
         contact.value = null;
     }
 
-    const deleteThread = async () => {
+    const deleteThread = () => {
         chatThread.value = [];
-        await axios.delete('/chats/' + contact.value.uuid);
+        axios.delete('/chats/' + contact.value.uuid)
     }
 
     const updateChatThread = (chat) => {
@@ -160,20 +115,20 @@
         }
     }
 
-    const updateSidePanel = async(chat) => {
-        if(contact.value && contact.value.id == chat[0].value.contact_id){
+    const updateSidePanel = async (chat) => {
+        console.log(chat, "chat")
+        if (contact.value && contact.value.id == chat[0].value.contact_id) {
             updateChatThread(chat);
         }
 
-        try {
-            const response = await axios.get('/chats?fetch_json=true');
-           
-            if (response?.data?.result) {
-                rows.value = response.data.result;
-            }
-        } catch (error) {
-            console.error('Error updating side panel:', error);
+        const response = await axios.get('/chats');
+        if (response) {
+            rows.value = response.data.result;
         }
+    }
+    const updateStatus = async (chatInfo) => {
+        statusHandler.value = chatInfo
+
     }
 
     const onCloseDemoModal = () => {
@@ -186,12 +141,12 @@
             props.pusherSettings['pusher_app_cluster']
         );
 
-        echo.channel('chats.ch' + props.organizationId)
-            .listen('NewChatEvent', (event) => {
-               
-                updateSidePanel(event.chat);
-            });
-       
+        echo.channel('chats.ch' + props.organizationId).listen('NewChatEvent', (event) => {
+            updateSidePanel(event.chat);
+        });
+        echo.channel('status.ch' + props.organizationId).listen('NewStatusEvent', (event) => {
+            updateStatus(event);
+        });
 
         scrollToBottom();
     });

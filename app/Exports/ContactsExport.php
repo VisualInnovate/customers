@@ -14,7 +14,7 @@ class ContactsExport implements FromCollection, WithHeadings
     */
     public function collection()
     {
-        $contacts = Contact::with('contactGroups')
+        $contacts = Contact::with('contactGroup')
             ->where('organization_id', session()->get('current_organization'))
             ->whereNull('deleted_at')
             ->get();
@@ -35,7 +35,7 @@ class ContactsExport implements FromCollection, WithHeadings
                 'last_name' => $contact->last_name,
                 'phone' => $contact->formatted_phone_number, // Assuming formatted_phone_number is defined
                 'email' => $contact->email,
-                'group_name' => $contact->contactGroups->pluck('name')->implode('|'),
+                'group_name' => $contact->contactGroup ? $contact->contactGroup->name : null,
                 'street' => $address['street'] ?? null,
                 'city' => $address['city'] ?? null,
                 'state' => $address['state'] ?? null,

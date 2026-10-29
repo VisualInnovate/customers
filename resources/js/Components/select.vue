@@ -1,8 +1,5 @@
 <template>
-    {{ filteredOptions }}
-    ssss
-  <div class="border-2">
-    {{ filteredOptions }}
+  <div>
     <Combobox v-model="selectedValue">
       <p class="text-sm text-slate-900">{{ $t("contacts") }}</p>
 

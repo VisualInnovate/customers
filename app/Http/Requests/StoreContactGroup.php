@@ -36,22 +36,18 @@ class StoreContactGroup extends FormRequest
                     }),
                 ],
                 // Add other validation rules as needed
+                'contacts' => ['nullable', 'array'],
+                'contacts.*' => ['exists:contacts,uuid'],
             ];
         } else {
             $rules['name'][] = Rule::unique('contact_groups', 'name')
-            ->where(function ($query) use ($organizationId) {
-                return $query
-                    ->where('organization_id', $organizationId)
-                    ->where('deleted_at', null)
-                    ->whereNotIn('uuid', [$this->route('uuid')]);
-            });
+                ->where(function ($query) use ($organizationId) {
+                    return $query
+                        ->where('organization_id', $organizationId)
+                        ->where('deleted_at', null)
+                        ->whereNotIn('uuid', [$this->route('uuid')]);
+                });
         }
-
-        $rules['contact_ids'] = ['array', 'sometimes'];
-        $rules['contact_ids.*'] = [
-            'integer',
-            Rule::exists('contacts', 'id')->where('organization_id', $organizationId)
-        ];
 
         return $rules;
     }

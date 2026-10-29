@@ -7,12 +7,10 @@ use App\Http\Requests\StoreContact;
 use App\Http\Resources\AutoReplyResource;
 use App\Http\Resources\ContactResource;
 use App\Http\Resources\ContactGroupResource;
-use App\Http\Resources\TemplateResource;
 use App\Models\AutoReply;
 use App\Models\Contact;
 use App\Models\ContactGroup;
 use App\Models\Organization;
-use App\Models\Template;
 use App\Rules\CannedReplyLimit;
 use App\Rules\ContactLimit;
 use App\Rules\UniquePhone;
@@ -26,7 +24,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Propaganistas\LaravelPhone\PhoneNumber;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use DB;
 
 class ApiController extends Controller
 {
@@ -68,7 +65,7 @@ class ApiController extends Controller
     public function storeContact(Request $request, $uuid = NULL){
         $validator = Validator::make($request->all(), [
             'first_name' => $request->isMethod('post') ? 'required' : 'required|sometimes',
-            //'last_name' => 'required',
+            'last_name' => 'required',
             'phone' => [
                 'required',
                 'string',
@@ -76,7 +73,7 @@ class ApiController extends Controller
                 'phone:AUTO',
                 new UniquePhone($request->organization, $uuid),
             ],
-            //'email' => 'required|string|email|max:255',
+            'email' => 'required|string|email|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -142,24 +139,6 @@ class ApiController extends Controller
                 'message' => __('Request unable to be processed')
             ], 500);
         }
-    }
-
-    public function getGroupContacts(Request $request, $uuid)
-    {
-        $organization_id = $request->organization_id;
-        $searchTerm = $request->query('search') ?? '';
-        $group = ContactGroup::where('uuid', $uuid)->where('organization_id', $organization_id)->first();
-        if(empty($group)) return response()->json([
-            'statusCode' => 404,
-            'message' => __('Group not found in this Organization')
-        ]);
-
-        $contactModel = new Contact;
-        $contacts = $contactModel
-            ->getAllContacts($organization_id, $searchTerm, $group->id,
-                $request->query('exclude') ?? false);
-
-        return ContactResource::collection($contacts);
     }
 
     /**
@@ -521,7 +500,7 @@ class ApiController extends Controller
             $header['text'] = clean($request->header);
         }
 
-        $message = $this->whatsappService->sendMessage($contact->uuid, $request->message, 0, $type, $request->buttons, $header, $request->footer);
+        $message = $this->whatsappService->sendMessage($contact->uuid, $request->message, $type, $request->buttons, $header, $request->footer);
         
         return response()->json([
             'statusCode' => 200,
@@ -587,7 +566,7 @@ class ApiController extends Controller
 
         // Extract the UUID of the contact
         $this->initializeWhatsappService($request->organization);
-        $responseObject = $this->whatsappService->sendTemplateMessage($contact->uuid, $request->template, 0);
+        $responseObject = $this->whatsappService->sendTemplateMessage($contact->uuid, $request->template);
 
         return response()->json([
             'statusCode' => 200,
@@ -687,87 +666,11 @@ class ApiController extends Controller
         $config = $config ? json_decode($config, true) : [];
 
         $accessToken = $config['whatsapp']['access_token'] ?? null;
-        $apiVersion = config('graph.api_version');
+        $apiVersion = env('GRAPH_API_VERSION', 'v20.0');
         $appId = $config['whatsapp']['app_id'] ?? null;
         $phoneNumberId = $config['whatsapp']['phone_number_id'] ?? null;
         $wabaId = $config['whatsapp']['waba_id'] ?? null;
 
         $this->whatsappService = new WhatsappService($accessToken, $apiVersion, $appId, $phoneNumberId, $wabaId, $organizationId);
-    }
-
-    /**
-     * List all templates.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function listTemplates(Request $request){
-        $validator = Validator::make($request->all(), [
-            'page' => 'integer|min:1',
-            'per_page' => 'integer|min:1|max:100', // Adjust max per_page limit as needed
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
-        }
-
-        $page = $request->input('page', 1);
-        $perPage = $request->input('per_page', 10);
-
-        $templates = Template::where('organization_id', $request->organization)
-            ->where('deleted_at', NULL)
-            ->paginate($perPage, ['uuid', 'name', 'metadata', 'updated_at'], 'page', $page);
-
-        return TemplateResource::collection($templates);
-    }
-
-    /**
-     * Verify if the API key is active.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function verifyApiKey(Request $request)
-    {
-        $bearerToken = $request->bearerToken();
-
-        if (!$bearerToken) {
-            return response()->json([
-                'statusCode' => 401,
-                'message' => __('No API key provided. Please include it in the Authorization header as a Bearer token.')
-            ], 401);
-        }
-
-        try {
-            $token = DB::table('organization_api_keys')
-                ->where('token', $bearerToken)
-                ->whereNull('deleted_at')
-                ->first();
-
-            if (!$token) {
-                return response()->json([
-                    'statusCode' => 401,
-                    'message' => __('Invalid API key.')
-                ], 401);
-            }
-
-            $organizationId = $token->organization_id;
-
-            if (!SubscriptionService::isSubscriptionActive($organizationId)) {
-                return response()->json([
-                    'statusCode' => 403,
-                    'message' => __('API key is inactive. Please renew or subscribe to a plan to continue!')
-                ], 403);
-            }
-
-            return response()->json([
-                'statusCode' => 200,
-                'message' => __('API key is valid and active')
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'statusCode' => 500,
-                'message' => __('Request unable to be processed')
-            ], 500);
-        }
     }
 }

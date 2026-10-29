@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Http\Resources\TaxRateResource;
-use App\Models\PaymentGateway;
 use App\Models\TaxRate;
-use App\Services\StripeService;
 
 class TaxService
 {
@@ -36,12 +34,6 @@ class TaxService
         $taxrate->percentage = $request->percentage;
         $taxrate->save();
 
-        $stripe = PaymentGateway::where('name', 'Stripe')->first();
-
-        if($stripe->is_active == '1'){
-            (new StripeService)->updateProductPrices();
-        }
-
         return $taxrate;
     }
 
@@ -58,12 +50,6 @@ class TaxService
         $taxrate->status = 'inactive';
         $taxrate->deleted_at = date('Y-m-d H:i:s');
         $taxrate->save();
-
-        $stripe = PaymentGateway::where('name', 'Stripe')->first();
-
-        if($stripe->is_active == '1'){
-            (new StripeService)->updateProductPrices();
-        }
 
         return $taxrate;
     } 

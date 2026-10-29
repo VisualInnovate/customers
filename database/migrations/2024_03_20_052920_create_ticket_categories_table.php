@@ -15,7 +15,7 @@ class CreateTicketCategoriesTable extends Migration
     {
         Schema::create('ticket_categories', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('name')->nullable(false);
+            $table->string('name', 255)->nullable(false);
         });
     }
 
